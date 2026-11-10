@@ -1,0 +1,12 @@
+# dsh-color-style — bundle patch
+#
+# Contributes exactly one Loader row (`color-style`). The profile's own
+# `cordis.patch.yml` can target that row id to override `config` or set
+# `disabled: true`.
+#
+# The palettes are presentation-only: every token layer, the injected
+# stylesheet and the stored selection live in the Client half (`client.js`),
+# so the Host side registers nothing configurable.
+- insert:
+    - id: color-style
+      name: 'dsh-color-style'
