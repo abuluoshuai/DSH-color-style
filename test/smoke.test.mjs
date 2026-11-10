@@ -294,6 +294,12 @@ test("all ten palettes render as complete, distinct cards", () => {
   assert.equal(cards.length, 10, "ten palette cards render");
   const titles = cards.map((card) => card.props.title);
   assert.equal(new Set(titles).size, 10, "palette names are distinct");
+  // 双列布局：行优先填充，左列浅色、右列同色系深色
+  assert.deepEqual(
+    titles,
+    ["纸卷", "余烬", "樱雪", "德古拉", "冰原", "午夜", "草甸", "幽林", "暮光", "深渊"],
+    "left column lights, right column their dark counterparts",
+  );
 });
 
 test("palette card selection applies that palette", () => {

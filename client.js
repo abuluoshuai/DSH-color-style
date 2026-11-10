@@ -301,6 +301,29 @@ window.__ModuleLoader__.load({
       return null;
     }
 
+    /* Settings page layout: two columns, light schemes on the left and their
+       dark counterparts on the right, paired by accent hue family
+       (warm, rose, blue, green, and the two extremes). */
+    const PAIR_ORDER = [
+      ['paper', 'ember'],
+      ['sakura', 'dracula'],
+      ['arctic', 'midnight'],
+      ['meadow', 'forest'],
+      ['dusk', 'abyss'],
+    ];
+
+    /** The ten palettes in display order: each light one followed by its dark counterpart. */
+    function orderedPalettes() {
+      const ordered = [];
+      for (const pair of PAIR_ORDER) {
+        for (const id of pair) {
+          const palette = paletteById(id);
+          if (palette !== null) ordered.push(palette);
+        }
+      }
+      return ordered;
+    }
+
     const SUCCESS = '#22c55e';
     const WARNING = '#f59e0b';
     const DANGER = '#ef4444';
@@ -580,7 +603,7 @@ window.__ModuleLoader__.load({
       '.dcs-page-head{display:flex;flex-direction:column;gap:4px}',
       '.dcs-page-title{color:var(--dsw-alias-label-primary);font-size:16px;font-weight:500;line-height:24px}',
       '.dcs-page-desc{color:var(--dsw-alias-label-secondary);font-size:12px;line-height:18px}',
-      '.dcs-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:10px}',
+      '.dcs-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}',
       '.dcs-card{box-sizing:border-box;display:flex;flex-direction:column;gap:6px;padding:8px;font:inherit;color:var(--dsw-alias-label-primary);text-align:left;cursor:pointer;background:0 0;border:.5px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-md)}',
       '.dcs-card:hover{background:var(--dsw-alias-interactive-bg-hover)}',
       ".dcs-card[aria-pressed='true']{border-color:var(--dsw-alias-brand-primary);box-shadow:inset 0 0 0 1px var(--dsw-alias-brand-primary)}",
@@ -855,7 +878,7 @@ window.__ModuleLoader__.load({
             h(
               'div',
               { className: 'dcs-grid', role: 'group', 'aria-label': t('title') },
-              PALETTES.map((palette) =>
+              orderedPalettes().map((palette) =>
                 h(
                   'button',
                   {
