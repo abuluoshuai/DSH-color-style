@@ -124,6 +124,9 @@ function makeEnvironment({ stored = null, legacy = null, preference = "dark" } =
   };
 
   globalThis.window = {
+    getComputedStyle() {
+      return { getPropertyValue: () => "#101014" };
+    },
     localStorage: {
       getItem(key) {
         return store.has(key) ? store.get(key) : null;
@@ -188,6 +191,10 @@ function walk(node, visit) {
   }
   if (!node || typeof node !== "object") return;
   visit(node);
+  if (typeof node.type === "function") {
+    walk(node.type(node.props ?? {}), visit);
+    return;
+  }
   const children = [].concat(node.children ?? []);
   for (const child of children) walk(child, visit);
 }
@@ -230,13 +237,17 @@ test("boot with a stored selection layers the palette and paints the window", ()
   const layer = env.layers.get("dsh-color-style");
   assert.equal(layer["--dsw-alias-bg-base"].light, "#fdf8f8");
   assert.equal(layer["--dsw-alias-bg-base"].dark, "#fdf8f8");
-  assert.equal(layer["--shiki-token-keyword"].light, "#c44569");
+  assert.equal(Object.keys(layer).length, 1, "only the canvas token is layered globally");
 
   const sheet = [...env.styleNodes.values()].find((node) => node.id === "dsh-color-style-sheet");
   assert.ok(sheet, "belt-and-suspenders sheet installed");
   assert.ok(sheet.textContent.includes("background-color:#fdf8f8"), "window canvas painted");
+  assert.ok(sheet.textContent.includes("[data-conversation-content]{"), "conversation scope present");
+  assert.ok(sheet.textContent.includes("--shiki-token-keyword:#c44569"), "syntax tokens scoped to the conversation");
   assert.ok(sheet.textContent.includes("[class*=\"_markdown_\"]"), "markdown scoping present");
   assert.ok(sheet.textContent.includes(":not(pre)>code"), "inline code ink present");
+  assert.ok(sheet.textContent.includes("[data-composer-seat]{"), "composer restored to stock while chrome is off");
+  assert.ok(!sheet.textContent.includes("_logoRow"), "brand scope stays off by default");
   assert.equal(env.store.get("dsh.color-style.active"), "sakura");
 });
 
@@ -316,4 +327,42 @@ test("palette card selection applies that palette", () => {
   assert.equal(layer["--dsw-alias-bg-base"].light, "#0d1512");
   const sheet = [...env.styleNodes.values()].find((node) => node.id === "dsh-color-style-sheet");
   assert.ok(sheet.textContent.includes("background-color:#0d1512"));
+});
+
+test("scope switches: brand adds the logo-row scope, chrome folds the global layer", () => {
+  const env = makeEnvironment({ stored: "paper", preference: "light" });
+  boot(env);
+
+  const switches = [];
+  walk(renderPage(env), (node) => {
+    if (node.props && node.props.role === "switch") switches.push(node);
+  });
+  assert.equal(switches.length, 2, "two scope switches render");
+  assert.deepEqual(
+    switches.map((sw) => sw.props["aria-checked"]),
+    [false, false],
+    "both scopes default to off",
+  );
+
+  // 品牌区开关
+  switches[0].props.onClick();
+  assert.ok(env.store.get("dsh.color-style.scope.brand") === "1", "brand switch persisted");
+  const sheet = [...env.styleNodes.values()].find((node) => node.id === "dsh-color-style-sheet");
+  assert.ok(sheet.textContent.includes('[class$="_logoRow"]'), "brand row scope painted");
+  assert.equal(env.layers.has("dsh-color-style/chrome"), false, "brand switch does not fold chrome");
+
+  // 其余区域开关
+  switches[1].props.onClick();
+  assert.ok(env.store.get("dsh.color-style.scope.chrome") === "1", "chrome switch persisted");
+  assert.equal(env.layers.has("dsh-color-style/chrome"), true, "chrome layer folded");
+  assert.ok(!sheet.textContent.includes("[data-composer-seat]"), "composer restore dropped with chrome on");
+  assert.ok(
+    sheet.textContent.indexOf(':where([class*="_markdown_"]) :where(h1') >= 0,
+    "markdown rules widen beyond the conversation when chrome is on",
+  );
+
+  // 再关掉
+  switches[1].props.onClick();
+  assert.equal(env.layers.has("dsh-color-style/chrome"), false, "chrome layer disposed");
+  assert.ok(!env.store.has("dsh.color-style.scope.chrome"), "chrome switch cleared");
 });

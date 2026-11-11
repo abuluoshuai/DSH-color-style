@@ -3,30 +3,30 @@
  * lifted from the Tinta Markdown reader (Paper, Sakura, Arctic, Meadow, Dusk,
  * Midnight, Dracula, Forest, Ember, Abyss).
  *
- * Three layers make a palette visible:
+ * A palette applies in three scopes, controlled from its own Settings page:
  *
- * 1. Design-system token layer — the palette is folded through
- *    `ctx.theme.overrideTokens` as a { light, dark } map, so every surface that
- *    reads `--dsw-*` aliases (window background, sidebar, composer, menus,
- *    Markdown container, code blocks, syntax highlighting) follows the palette.
- *    The selected scheme also owns the Appearance light/dark preference, which
- *    keeps `color-scheme`, `data-ds-dark-theme` and the un-layered tokens
- *    coherent.
+ * 1. Always on: the window canvas plus the central conversation column. The
+ *    full derived token set is re-declared on the conversation root
+ *    ([data-conversation-content]) so the transcript — Markdown, bubbles, tool
+ *    cards, reasoning rows, crumb header — follows the palette; the composer
+ *    seat ([data-composer-seat]) is restored to the stock tokens so its own
+ *    surfaces keep their own ink. Only the canvas token (--dsw-alias-bg-base)
+ *    goes through ctx.theme.overrideTokens globally.
  *
- * 2. Belt-and-suspenders stylesheet — one plugin-owned `<style>` node that
- *    paints `html`/`body` with the palette background and colours the Markdown
- *    typography (headings, links, inline code, blockquotes) through structural
- *    selectors. It only sets colours on elements that already exist: no
- *    overlays, no fixed layers, nothing that could cover the UI or block
- *    pointer events. Translucent materials keep their alpha, so menus and
- *    modals stay operable.
+ * 2. Brand lockup scope (off by default): re-declares the token set on the
+ *    sidebar brand row ([class$="_logoRow"]) and paints it with the palette
+ *    sidebar fill, so the whale mark and the wordmark (both currentColor)
+ *    follow the palette.
  *
- * 3. A dedicated Settings page — registered as a `settings.section`
- *    contribution with its own navigation entry and icon.
+ * 3. Rest-of-UI scope (off by default): folds the whole derived set through
+ *    ctx.theme.overrideTokens as a second layer, so the sidebar, composer,
+ *    menus, settings and every other surface follow the palette too.
  *
- * The selected palette id is browser-local (localStorage); third-party theme
- * ids do not cross the Host settings schema. A leftover selection from the
- * predecessor bundle (`dsh.tinta-themes.active`) is migrated once.
+ * No overlay elements anywhere: backgrounds land only on existing elements;
+ * translucent menu materials keep their alpha. The selected scheme owns the
+ * Appearance light/dark mode (sticky, bounded reassert). The selected palette
+ * and both scope switches persist in localStorage with a cookie mirror; a
+ * leftover selection from the predecessor bundle migrates once.
  */
 window.__ModuleLoader__.load({
   id: 'dsh-color-style',
@@ -40,6 +40,9 @@ window.__ModuleLoader__.load({
     const LOCALE_NS = 'settings.color-style';
     const STYLE_NODE_ID = 'dsh-color-style-sheet';
     const UI_STYLE_NODE_ID = 'dsh-color-style-ui';
+    const CHROME_LAYER_SOURCE = 'dsh-color-style/chrome';
+    const BRAND_SCOPE_KEY = 'dsh.color-style.scope.brand';
+    const CHROME_SCOPE_KEY = 'dsh.color-style.scope.chrome';
 
     /* ------------------------------------------------------------------ */
     /* colour helpers                                                      */
@@ -574,62 +577,63 @@ window.__ModuleLoader__.load({
     /* ------------------------------------------------------------------ */
 
     /**
-     * Compile the palette stylesheet. Colours land on elements that already
-     * exist (html/body and the Markdown typography); `html`/`body` only receive
-     * a background colour behind the app, never a covering layer, so clicks,
-     * menus and translucent materials stay untouched.
+     * Compile the palette stylesheet for the current scope switches.
+     *
+     * Always emitted: the window canvas colour, and the full derived token set
+     * re-declared on the conversation root so the transcript follows the
+     * palette. When the rest-of-UI switch is off, the composer seat (which
+     * hangs inside the conversation root) is restored to the stock tokens
+     * captured before any layer is applied, so its own surfaces keep their own
+     * ink. When the brand switch is on, the brand row gets the token set plus
+     * the palette sidebar fill; both brand artwork pieces paint with
+     * currentColor, so the scoped label tokens recolour them.
      * @param palette - scheme data.
+     * @param stock - stock token values captured before layering (nullable).
+     * @param scopes - { brand, chrome } scope switches.
      * @returns stylesheet text.
      */
-    function compileSheet(palette) {
+    function compileSheet(palette, stock, scopes) {
       const quoteInk = mix(palette.text, palette.bg, 0.22);
       const inlineCodeInk = mix(palette.text, palette.codeBg, 0.25);
-      return [
-        /* whole-window canvas */
+      const dark = palette.scheme === 'dark';
+      const sidebarFill = dark ? mix(palette.bg, '#ffffff', 0.03) : mix(palette.bg, palette.text, 0.035);
+      const tokens = deriveTokens(palette);
+      const tokenBlock = Object.keys(tokens)
+        .map((name) => name + ':' + tokens[name])
+        .join(';') + ';';
+      const mdRoot = scopes.chrome
+        ? ':where([class*="_markdown_"])'
+        : ':where([data-conversation-content]) :where([class*="_markdown_"])';
+
+      const out = [
+        /* the window canvas follows the palette in every scope combination */
         ':root,html,body{background-color:' + palette.bg + '}',
-        'body{color:' + palette.text + '}',
-        /* Markdown typography — structural selectors over CSS-module roots */
-        ':where([class*="_markdown_"]) :where(h1,h2,h3,h4,h5,h6){color:' + palette.heading + '}',
-        ':where([class*="_markdown_"]) :where(a){color:' + palette.link + '}',
-        ':where([class*="_markdown_"]) :where(a:focus,a:hover){text-decoration-color:' + palette.link + '}',
-        ':where([class*="_markdown_"]) :where(blockquote){border-left-color:' + palette.border + ';color:' + quoteInk + '}',
-        ':where([class*="_markdown_"]) :where(:not(pre)>code){color:' + inlineCodeInk + '}',
-        /* Sidebar rail — the brand lockup (whale mark, wordmark, HARNESS badge),
-           the New Session pill and the primary nav rows take the heading ink.
-           Hooks are ui-sidebar's SidebarRoot CSS-module suffixes, matched by
-           containment the same way as `_markdown_` above. `!important` only
-           where the host stylesheet paints its own colour on the same element
-           (the nav rows and the collapsed/hover states read label-primary). */
-        '[class*="_logoRow"],[class*="_brandMark"],[class*="_brandName"],[class*="_brandIdentity"]{color:' + palette.heading + '}',
-        '[class*="_brandIdentity"] :where(span,svg){color:inherit!important}',
-        '[class*="_newSession"]{color:' + palette.heading + '!important}',
-        '[class*="_panelRow"],[class*="_panelIcon"],[class*="_panelGlyph"],[class*="_panelTitle"]{color:' + palette.heading + '!important}',
-        /* Sidebar column — the workspace tree, session rows, section headers and
-           times read the label aliases, so the tokens are re-pointed at the
-           heading colour for the whole column (custom properties cascade;
-           portalled menus render outside and stay untouched). The scope list
-           accepts the frame's left column as well as either rail wrapper, so
-           the rules hold no matter which one wraps a given build's sidebar. */
-        ':is([class*="_sidebarCol"],[class*="_rail"],[class*="_railIn"]){--dsw-alias-label-primary:' + palette.heading + ';--dsw-alias-label-secondary:' + palette.heading + ';--dsw-alias-label-tertiary:' + palette.heading + ';--dsw-alias-label-caption:' + palette.heading + ';--dsw-alias-label-dimmed:' + palette.heading + ';color:' + palette.heading + '}',
-        /* Workspace tree belt-and-suspenders — every row, label, input and the
-           hard-coded greys of the hover card are pinned at (0,2,0)+!important
-           under that column scope: it beats the host's class rules whatever
-           the order and does not rely on custom-property inheritance. */
-        ':is([class*="_sidebarCol"],[class*="_rail"],[class*="_railIn"]) :is([class*="_sectionHeader"],[class*="_sectionLabel"],[class*="_iconButton"],[class*="_searchButton"],[class*="_clearButton"],[class*="_search"],[class*="_searchInput"],[class*="_searchStatus"],[class*="_sessionOverflowButton"],[class*="_sessionRow"],[class*="_projectRow"],[class*="_projectText"],[class*="_folder"],[class*="_folderActive"],[class*="_groupTitle"],[class*="_title"],[class*="_time"],[class*="_meta"],[class*="_timestamp"],[class*="_chevron"],[class*="_arrow"],[class*="_dot"],[class*="_hoverTitle"],[class*="_hoverPath"],[class*="_hoverTime"],[class*="_hoverStatus"],[class*="_searchResultHeading"],[class*="_searchResultTitle"],[class*="_searchResultMeta"],[class*="_searchResultSnippet"],[class*="_searchResultWorkspace"]){color:' + palette.heading + '!important}',
-        ':is([class*="_sidebarCol"],[class*="_rail"],[class*="_railIn"]) :is([class*="_searchInput"])::placeholder{color:' + palette.heading + '!important}',
-        /* Conversation header — the crumb, title row, view tabs (对话/轨迹/
-           画廊), the mode chip and the corner utilities. `:has()` picks the
-           header that actually carries a crumb, so no other module's header is
-           touched. The native Windows menu strip (应用/编辑) and the system
-           caption buttons are OS-drawn and out of reach for page CSS. */
-        '[class*="_header"]:has([class*="_crumb"]),[class*="_crumbs"],[class*="_crumb"],[class*="_titleRow"],[class*="_titleCluster"],[class*="_viewTabs"],[class*="_tab"],[class*="_viewsMore"],[class*="_headerLeading"],[class*="_headerUtilities"],[class*="_headerActions"],[class*="_headerBlank"],[class*="_headerCorner"],[class*="_triggerLabel"]{--dsw-alias-label-primary:' + palette.heading + ';--dsw-alias-label-secondary:' + palette.heading + ';--dsw-alias-label-tertiary:' + palette.heading + ';--dsw-alias-label-caption:' + palette.heading + ';--dsw-alias-label-dimmed:' + palette.heading + ';color:' + palette.heading + '!important}',
-        /* Composer dock — the input bar's toolbar row (+, permission chip,
-           model chip), the status pill row beneath it and the queue dock all
-           read label aliases, so the same local re-point applies to the
-           composer seat subtree. The send button keeps its accent fill. */
-        '[class*="_composerSeat"],[class*="_composerStack"],[class*="_composerHero"],[class*="_dock"],[class*="_dock"]:has(textarea),[class*="_composerSeat"]:has(textarea){--dsw-alias-label-primary:' + palette.heading + ';--dsw-alias-label-secondary:' + palette.heading + ';--dsw-alias-label-tertiary:' + palette.heading + ';--dsw-alias-label-caption:' + palette.heading + ';--dsw-alias-label-dimmed:' + palette.heading + ';color:' + palette.heading + '}',
-      ]
-        .join('\n');
+        /* the conversation column: the full token set re-declared on the
+           conversation root; the transcript follows the palette while the rest
+           of the UI keeps its own theme until a scope switch opts it in */
+        '[data-conversation-content]{' + tokenBlock + '}',
+        mdRoot + ' :where(h1,h2,h3,h4,h5,h6){color:' + palette.heading + '}',
+        mdRoot + ' :where(a){color:' + palette.link + '}',
+        mdRoot + ' :where(a:focus,a:hover){text-decoration-color:' + palette.link + '}',
+        mdRoot + ' :where(blockquote){border-left-color:' + palette.border + ';color:' + quoteInk + '}',
+        mdRoot + ' :where(:not(pre)>code){color:' + inlineCodeInk + '}',
+      ];
+
+      if (!scopes.chrome && stock !== null) {
+        const stockBlock = Object.keys(stock)
+          .filter((name) => stock[name] !== '')
+          .map((name) => name + ':' + stock[name])
+          .join(';') + ';';
+        if (stockBlock !== ';') {
+          out.push('[data-composer-seat]{' + stockBlock + '}');
+        }
+      }
+
+      if (scopes.brand) {
+        out.push('[class$="_logoRow"]{' + tokenBlock + 'color:' + palette.text + ';background-color:' + sidebarFill + '}');
+      }
+
+      return out.join('\n');
     }
 
     /** The palette-independent stylesheet for the settings page UI. */
@@ -650,6 +654,14 @@ window.__ModuleLoader__.load({
       '.dcs-preview-line{height:2px;border-radius:1px}',
       '.dcs-name{display:flex;align-items:center;justify-content:space-between;gap:6px;font-size:12px;line-height:16px;color:var(--dsw-alias-label-primary)}',
       '.dcs-tag{font-size:10px;line-height:14px;color:var(--dsw-alias-label-tertiary);border:.5px solid var(--dsw-alias-border-l2);border-radius:999px;padding:0 5px;flex:none}',
+      '.dcs-scopes{display:flex;flex-direction:column;gap:8px}',
+      '.dcs-switchrow{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:10px 12px;border:.5px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-md)}',
+      '.dcs-switchtitle{font-size:12px;line-height:18px;color:var(--dsw-alias-label-primary)}',
+      '.dcs-switchdesc{font-size:11px;line-height:16px;color:var(--dsw-alias-label-secondary);margin-top:2px}',
+      '.dcs-switch{position:relative;flex:none;width:36px;height:20px;border-radius:999px;border:.5px solid var(--dsw-alias-border-l3);background:var(--dsw-alias-interactive-bg-hover-solid);cursor:pointer;padding:0;transition:background .15s,border-color .15s}',
+      ".dcs-switch[aria-checked='true']{background:var(--dsw-alias-brand-primary);border-color:transparent}",
+      '.dcs-knob{position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:var(--dsw-alias-switch-thumb);transition:left .15s}',
+      ".dcs-switch[aria-checked='true'] .dcs-knob{left:18px}",
       '.dcs-reset{align-self:flex-start;border:0;background:0 0;padding:2px 0;color:var(--dsw-alias-link);font:inherit;font-size:12px;line-height:18px;cursor:pointer}',
       '.dcs-reset:hover{text-decoration:underline}',
     ].join('\n');
@@ -675,7 +687,7 @@ window.__ModuleLoader__.load({
         nav: '配色方案',
         title: '配色方案',
         description:
-          '十种来自 Markdown 阅读器的阅读配色：选中后整个窗口背景与正文 Markdown 跟随方案变化，外观的明暗模式也会同步切换。',
+          '十种来自 Markdown 阅读器的阅读配色：默认仅对中间的对话渲染区和整个窗口背景生效，可用下方开关扩展到品牌标识区域或其余界面区域。',
         reset: '恢复默认外观',
         light: '浅色',
         dark: '深色',
@@ -689,12 +701,16 @@ window.__ModuleLoader__.load({
         'scheme.forest': '幽林',
         'scheme.ember': '余烬',
         'scheme.abyss': '深渊',
+        'scope.brand.title': '品牌标识区域',
+        'scope.brand.desc': '配色同时应用到左上角的 DeepSeek Harness 标识行（默认关闭）。',
+        'scope.chrome.title': '其余界面区域',
+        'scope.chrome.desc': '配色同时应用到对话区以外的界面：侧栏、输入框、菜单、设置页等（默认关闭）。',
       },
       en: {
         nav: 'Colour schemes',
         title: 'Colour schemes',
         description:
-          'Ten reading palettes from the Markdown viewer. The whole window background and the rendered Markdown follow the palette, and the light or dark appearance follows along.',
+          'Ten reading palettes from the Markdown viewer. Only the central conversation and the window canvas follow the palette by default; the switches below extend it to the brand lockup or the rest of the interface.',
         reset: 'Restore default appearance',
         light: 'Light',
         dark: 'Dark',
@@ -708,6 +724,10 @@ window.__ModuleLoader__.load({
         'scheme.forest': 'Forest',
         'scheme.ember': 'Ember',
         'scheme.abyss': 'Abyss',
+        'scope.brand.title': 'Brand lockup',
+        'scope.brand.desc': 'Also apply the palette to the DeepSeek Harness brand row in the top-left corner (off by default).',
+        'scope.chrome.title': 'Rest of the interface',
+        'scope.chrome.desc': 'Also apply the palette outside the conversation: sidebar, composer, menus, settings (off by default).',
       },
     };
 
@@ -727,8 +747,11 @@ window.__ModuleLoader__.load({
         const waiters = new Set();
         let activeId = null;
         let layer = null;
+        let chromeLayer = null;
         let writing = false;
         let reasserts = 0;
+        let brandScope = readScope(BRAND_SCOPE_KEY);
+        let chromeScope = readScope(CHROME_SCOPE_KEY);
 
         function bump() {
           for (const waiter of Array.from(waiters)) {
@@ -779,6 +802,39 @@ window.__ModuleLoader__.load({
           }
         }
 
+        /** Read one scope switch (localStorage first, cookie mirror second). */
+        function readScope(key) {
+          try {
+            const local = window.localStorage.getItem(key);
+            if (local !== null) return local === '1';
+          } catch (error) {
+            /* fall through to the cookie mirror */
+          }
+          try {
+            const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const match = document.cookie.match(new RegExp('(?:^|;\\s*)' + escaped + '=([^;]*)'));
+            if (match !== null && match[1] !== '') return decodeURIComponent(match[1]) === '1';
+          } catch (error) {
+            /* cookie unavailable: the switch stays off */
+          }
+          return false;
+        }
+
+        function writeScope(key, value) {
+          try {
+            if (value) window.localStorage.setItem(key, '1');
+            else window.localStorage.removeItem(key);
+          } catch (error) {
+            /* private mode: the switch stays for this page only */
+          }
+          try {
+            if (value) document.cookie = key + '=1; Max-Age=31536000; Path=/; SameSite=Lax';
+            else document.cookie = key + '=; Max-Age=0; Path=/; SameSite=Lax';
+          } catch (error) {
+            /* cookie unavailable: localStorage remains the store */
+          }
+        }
+
         /** Adopt a selection left by the predecessor tinta-themes bundle. */
         function migrateLegacyStorage() {
           try {
@@ -792,11 +848,27 @@ window.__ModuleLoader__.load({
           }
         }
 
-        /** Drop the palette layer and the injected sheet. */
+        /** Stock token values, captured while no layer is applied. */
+        function captureStockTokens(names) {
+          try {
+            const style = window.getComputedStyle(document.body);
+            const stock = {};
+            for (const name of names) stock[name] = style.getPropertyValue(name).trim();
+            return stock;
+          } catch (error) {
+            return null;
+          }
+        }
+
+        /** Drop every layer and the injected sheet. */
         function dropPalette() {
           if (layer !== null) {
             layer();
             layer = null;
+          }
+          if (chromeLayer !== null) {
+            chromeLayer();
+            chromeLayer = null;
           }
           const sheet = document.getElementById(STYLE_NODE_ID);
           if (sheet !== null) sheet.textContent = '';
@@ -810,8 +882,21 @@ window.__ModuleLoader__.load({
           try {
             theme.setTheme(palette.scheme);
             dropPalette();
-            layer = theme.overrideTokens(LAYER_SOURCE, asLayer(deriveTokens(palette)));
-            ensureStyleNode(STYLE_NODE_ID).textContent = compileSheet(palette);
+            const tokens = deriveTokens(palette);
+            const stock = captureStockTokens(Object.keys(tokens));
+            /* always: the window canvas token */
+            layer = theme.overrideTokens(
+              LAYER_SOURCE,
+              asLayer({ '--dsw-alias-bg-base': tokens['--dsw-alias-bg-base'] }),
+            );
+            /* rest-of-UI scope: the whole derived set, globally */
+            if (chromeScope) {
+              chromeLayer = theme.overrideTokens(CHROME_LAYER_SOURCE, asLayer(tokens));
+            }
+            ensureStyleNode(STYLE_NODE_ID).textContent = compileSheet(palette, stock, {
+              brand: brandScope,
+              chrome: chromeScope,
+            });
             activeId = palette.id;
             writeStored(palette.id);
           } catch (error) {
@@ -839,10 +924,22 @@ window.__ModuleLoader__.load({
           bump();
         }
 
+        function toggleScope(kind) {
+          if (kind === 'brand') {
+            brandScope = !brandScope;
+            writeScope(BRAND_SCOPE_KEY, brandScope);
+          } else {
+            chromeScope = !chromeScope;
+            writeScope(CHROME_SCOPE_KEY, chromeScope);
+          }
+          if (activeId !== null) applyPalette(activeId);
+          bump();
+        }
+
         /* The palette owns the Appearance mode. When the preference moves away
-           from the active palette (a durable-settings echo, a rejected write, a
-           reload), reassert it instead of losing the scheme; a bounded counter
-           stops the loop if the Host keeps refusing the write. */
+           from the active palette (a durable-settings echo, a rejected write,
+           a reload), reassert it instead of losing the scheme; a bounded
+           counter stops the loop if the Host keeps refusing the write. */
         ctx.on('theme/change', (snapshot) => {
           const snap = snapshot !== undefined && snapshot !== null ? snapshot : theme.getTheme();
           if (!writing && activeId !== null) {
@@ -870,7 +967,7 @@ window.__ModuleLoader__.load({
               if (node !== null) node.remove();
             }
           },
-          'color-style: release palette layer and sheets',
+          'color-style: release palette layers and sheets',
         );
 
         ensureStyleNode(UI_STYLE_NODE_ID).textContent = UI_STYLE_TEXT;
@@ -905,6 +1002,32 @@ window.__ModuleLoader__.load({
             h('circle', { cx: 7.5, cy: 10.5, r: 1, fill: 'currentColor', stroke: 'none' }),
             h('circle', { cx: 12, cy: 7.5, r: 1, fill: 'currentColor', stroke: 'none' }),
             h('circle', { cx: 16.5, cy: 10.5, r: 1, fill: 'currentColor', stroke: 'none' }),
+          );
+        }
+
+        /** One scope switch row: title, description, and the switch itself. */
+        function ScopeRow({ title, desc, on, onToggle }) {
+          return h(
+            'div',
+            { className: 'dcs-switchrow' },
+            h(
+              'div',
+              { className: 'dcs-switchtext' },
+              h('div', { className: 'dcs-switchtitle' }, title),
+              h('div', { className: 'dcs-switchdesc' }, desc),
+            ),
+            h(
+              'button',
+              {
+                type: 'button',
+                role: 'switch',
+                'aria-checked': on,
+                'aria-label': title,
+                className: 'dcs-switch',
+                onClick: onToggle,
+              },
+              h('span', { className: 'dcs-knob' }),
+            ),
           );
         }
 
@@ -986,6 +1109,24 @@ window.__ModuleLoader__.load({
                   ),
                 ),
               ),
+            ),
+            h(
+              'div',
+              { className: 'dcs-scopes' },
+              h(ScopeRow, {
+                key: 'brand',
+                title: t('scope.brand.title'),
+                desc: t('scope.brand.desc'),
+                on: brandScope,
+                onToggle: () => toggleScope('brand'),
+              }),
+              h(ScopeRow, {
+                key: 'chrome',
+                title: t('scope.chrome.title'),
+                desc: t('scope.chrome.desc'),
+                on: chromeScope,
+                onToggle: () => toggleScope('chrome'),
+              }),
             ),
             selected === null
               ? null
