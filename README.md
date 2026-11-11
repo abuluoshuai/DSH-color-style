@@ -14,7 +14,7 @@
 | 开关 | 默认 | 作用范围 | 实现 |
 | --- | --- | --- | --- |
 | 品牌标识区域 | 关 | 左上角 DeepSeek Harness 标识行 | 令牌集重声明到 `[class$="_logoRow"]` + 方案侧栏底色 |
-| 其余界面区域 | 关 | 对话区以外全部界面（侧栏/输入框/菜单/设置） | 整套令牌经 `overrideTokens` 折叠为全局第二层 |
+| 其余界面区域 | 关 | 对话区以外全部界面（侧栏/输入框/菜单/设置） | 整套令牌经 `overrideTokens` 折叠为全局第二层，并在 `#root` 与 `body`（`!important`）做样式表级兜底，不依赖主题服务的折叠行为 |
 
 默认（两个开关都关）下，配色只作用于中间对话区与整个窗口背景。开关状态存 `localStorage` + cookie 镜像（`dsh.color-style.scope.brand` / `dsh.color-style.scope.chrome`），跨端口重开仍保留。
 ## 界面预览

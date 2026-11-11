@@ -629,6 +629,20 @@ window.__ModuleLoader__.load({
         }
       }
 
+      if (scopes.chrome) {
+        /* belt and suspenders for the rest-of-UI scope: the same set declared
+           on the mount root and, !important, on body itself. The body
+           declarations beat the stock values the theme presenter writes
+           inline, so the scope holds — canvas, conversation, composer and
+           every portalled menu — even where the overrideTokens folding does
+           not reach */
+        out.push('#root{' + tokenBlock + '}');
+        const bodyBlock = Object.keys(tokens)
+          .map((name) => name + ':' + tokens[name] + '!important')
+          .join(';') + ';';
+        out.push('body{' + bodyBlock + 'color:' + palette.text + '!important}');
+      }
+
       if (scopes.brand) {
         out.push('[class$="_logoRow"]{' + tokenBlock + 'color:' + palette.text + ';background-color:' + sidebarFill + '}');
       }
