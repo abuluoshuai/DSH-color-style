@@ -583,6 +583,7 @@ window.__ModuleLoader__.load({
      */
     function compileSheet(palette) {
       const quoteInk = mix(palette.text, palette.bg, 0.22);
+      const inlineCodeInk = mix(palette.text, palette.codeBg, 0.25);
       return [
         /* whole-window canvas */
         ':root,html,body{background-color:' + palette.bg + '}',
@@ -592,7 +593,41 @@ window.__ModuleLoader__.load({
         ':where([class*="_markdown_"]) :where(a){color:' + palette.link + '}',
         ':where([class*="_markdown_"]) :where(a:focus,a:hover){text-decoration-color:' + palette.link + '}',
         ':where([class*="_markdown_"]) :where(blockquote){border-left-color:' + palette.border + ';color:' + quoteInk + '}',
-        ':where([class*="_markdown_"]) :where(:not(pre)>code){color:' + palette.code + '}',
+        ':where([class*="_markdown_"]) :where(:not(pre)>code){color:' + inlineCodeInk + '}',
+        /* Sidebar rail — the brand lockup (whale mark, wordmark, HARNESS badge),
+           the New Session pill and the primary nav rows take the heading ink.
+           Hooks are ui-sidebar's SidebarRoot CSS-module suffixes, matched by
+           containment the same way as `_markdown_` above. `!important` only
+           where the host stylesheet paints its own colour on the same element
+           (the nav rows and the collapsed/hover states read label-primary). */
+        '[class*="_logoRow"],[class*="_brandMark"],[class*="_brandName"],[class*="_brandIdentity"]{color:' + palette.heading + '}',
+        '[class*="_brandIdentity"] :where(span,svg){color:inherit!important}',
+        '[class*="_newSession"]{color:' + palette.heading + '!important}',
+        '[class*="_panelRow"],[class*="_panelIcon"],[class*="_panelGlyph"],[class*="_panelTitle"]{color:' + palette.heading + '!important}',
+        /* Sidebar column — the workspace tree, session rows, section headers and
+           times read the label aliases, so the tokens are re-pointed at the
+           heading colour for the whole column (custom properties cascade;
+           portalled menus render outside and stay untouched). The scope list
+           accepts the frame's left column as well as either rail wrapper, so
+           the rules hold no matter which one wraps a given build's sidebar. */
+        ':is([class*="_sidebarCol"],[class*="_rail"],[class*="_railIn"]){--dsw-alias-label-primary:' + palette.heading + ';--dsw-alias-label-secondary:' + palette.heading + ';--dsw-alias-label-tertiary:' + palette.heading + ';--dsw-alias-label-caption:' + palette.heading + ';--dsw-alias-label-dimmed:' + palette.heading + ';color:' + palette.heading + '}',
+        /* Workspace tree belt-and-suspenders — every row, label, input and the
+           hard-coded greys of the hover card are pinned at (0,2,0)+!important
+           under that column scope: it beats the host's class rules whatever
+           the order and does not rely on custom-property inheritance. */
+        ':is([class*="_sidebarCol"],[class*="_rail"],[class*="_railIn"]) :is([class*="_sectionHeader"],[class*="_sectionLabel"],[class*="_iconButton"],[class*="_searchButton"],[class*="_clearButton"],[class*="_search"],[class*="_searchInput"],[class*="_searchStatus"],[class*="_sessionOverflowButton"],[class*="_sessionRow"],[class*="_projectRow"],[class*="_projectText"],[class*="_folder"],[class*="_folderActive"],[class*="_groupTitle"],[class*="_title"],[class*="_time"],[class*="_meta"],[class*="_timestamp"],[class*="_chevron"],[class*="_arrow"],[class*="_dot"],[class*="_hoverTitle"],[class*="_hoverPath"],[class*="_hoverTime"],[class*="_hoverStatus"],[class*="_searchResultHeading"],[class*="_searchResultTitle"],[class*="_searchResultMeta"],[class*="_searchResultSnippet"],[class*="_searchResultWorkspace"]){color:' + palette.heading + '!important}',
+        ':is([class*="_sidebarCol"],[class*="_rail"],[class*="_railIn"]) :is([class*="_searchInput"])::placeholder{color:' + palette.heading + '!important}',
+        /* Conversation header — the crumb, title row, view tabs (对话/轨迹/
+           画廊), the mode chip and the corner utilities. `:has()` picks the
+           header that actually carries a crumb, so no other module's header is
+           touched. The native Windows menu strip (应用/编辑) and the system
+           caption buttons are OS-drawn and out of reach for page CSS. */
+        '[class*="_header"]:has([class*="_crumb"]),[class*="_crumbs"],[class*="_crumb"],[class*="_titleRow"],[class*="_titleCluster"],[class*="_viewTabs"],[class*="_tab"],[class*="_viewsMore"],[class*="_headerLeading"],[class*="_headerUtilities"],[class*="_headerActions"],[class*="_headerBlank"],[class*="_headerCorner"],[class*="_triggerLabel"]{--dsw-alias-label-primary:' + palette.heading + ';--dsw-alias-label-secondary:' + palette.heading + ';--dsw-alias-label-tertiary:' + palette.heading + ';--dsw-alias-label-caption:' + palette.heading + ';--dsw-alias-label-dimmed:' + palette.heading + ';color:' + palette.heading + '!important}',
+        /* Composer dock — the input bar's toolbar row (+, permission chip,
+           model chip), the status pill row beneath it and the queue dock all
+           read label aliases, so the same local re-point applies to the
+           composer seat subtree. The send button keeps its accent fill. */
+        '[class*="_composerSeat"],[class*="_composerStack"],[class*="_composerHero"],[class*="_dock"],[class*="_dock"]:has(textarea),[class*="_composerSeat"]:has(textarea){--dsw-alias-label-primary:' + palette.heading + ';--dsw-alias-label-secondary:' + palette.heading + ';--dsw-alias-label-tertiary:' + palette.heading + ';--dsw-alias-label-caption:' + palette.heading + ';--dsw-alias-label-dimmed:' + palette.heading + ';color:' + palette.heading + '}',
       ]
         .join('\n');
     }
@@ -707,10 +742,21 @@ window.__ModuleLoader__.load({
 
         function readStored() {
           try {
-            return window.localStorage.getItem(STORAGE_KEY);
+            const local = window.localStorage.getItem(STORAGE_KEY);
+            if (local !== null) return local;
           } catch (error) {
-            return null;
+            /* private mode: fall through to the cookie mirror */
           }
+          /* Cookie fallback — cookies are not port-scoped, so the selection
+             survives the Host re-binding the GUI to a new port after a
+             restart, which localStorage (origin = scheme+host+PORT) does not. */
+          try {
+            const match = document.cookie.match(/(?:^|;\s*)dsh\.color-style\.active=([^;]*)/);
+            if (match !== null && match[1] !== '') return decodeURIComponent(match[1]);
+          } catch (error) {
+            /* cookie unavailable: selection stays page-local */
+          }
+          return null;
         }
 
         function writeStored(value) {
@@ -719,6 +765,17 @@ window.__ModuleLoader__.load({
             else window.localStorage.setItem(STORAGE_KEY, value);
           } catch (error) {
             /* private mode: the palette stays for this page only */
+          }
+          try {
+            if (value === null) {
+              document.cookie = 'dsh.color-style.active=; Max-Age=0; Path=/; SameSite=Lax';
+            } else {
+              document.cookie =
+                'dsh.color-style.active=' + encodeURIComponent(value) +
+                '; Max-Age=31536000; Path=/; SameSite=Lax';
+            }
+          } catch (error) {
+            /* cookie unavailable: localStorage remains the store */
           }
         }
 

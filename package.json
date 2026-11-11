@@ -1,15 +1,19 @@
 {
   "name": "dsh-color-style",
-  "version": "0.1.0",
-  "private": true,
+  "version": "0.1.1",
   "description": "Ten Markdown-reader colour schemes for DeepSeek Harness: full-window background, Markdown typography, and a dedicated Settings page.",
   "type": "module",
   "license": "MIT",
   "author": "abuluoshuai",
+  "icon": "./icon.svg",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/abuluoshuai/DSH-color-style.git"
   },
+  "bugs": {
+    "url": "https://github.com/abuluoshuai/DSH-color-style/issues"
+  },
+  "homepage": "https://github.com/abuluoshuai/DSH-color-style#readme",
   "keywords": [
     "deepseek-harness",
     "dsh",
@@ -20,13 +24,15 @@
     "markdown"
   ],
   "engines": {
-    "node": ">=22.19.0"
+    "node": ">=22.19.0",
+    "dsh": ">=0.2.0-rc.1 <0.3.0"
   },
   "main": "lib/index.js",
   "exports": {
     ".": "./lib/index.js",
     "./client": "./client.js",
     "./icon": "./icon.svg",
+    "./locale/*.json": "./locale/*.json",
     "./package.json": "./package.json"
   },
   "files": [
@@ -34,6 +40,8 @@
     "lib/index.js",
     "icon.svg",
     "cordis.patch.yml",
+    "locale/*.json",
+    "docs/settings-page.png",
     "README.md",
     "LICENSE"
   ],
