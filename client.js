@@ -745,10 +745,14 @@ window.__ModuleLoader__.load({
       }
 
       if (scopes.brand) {
-        out.push('[class*="_logoRow"]{' + allBlock + 'color:' + palette.text + ';background-color:' + sidebarFill + '}');
+        /* the lockup takes the palette heading ink (H1 colour), like the
+           reader's own title colour */
+        out.push('[class*="_logoRow"]{' + allBlock + 'color:' + palette.heading + ';background-color:' + sidebarFill + '}');
         /* the whale mark and the wordmark paint with currentColor; pin the
            subtree so the host's own colour declarations cannot win */
-        out.push('[class*="_logoRow"] :where(span,svg,div,button,a){color:inherit!important}');
+        out.push('[class*="_logoRow"] :where(span,svg,div,button,a,img){color:inherit!important}');
+        out.push('[class*="_brandIdentity"],[class*="_brandMark"],[class*="_brandName"]{color:' + palette.heading + '!important}');
+        out.push('[class*="_brandIdentity"] :where(span,svg,div){color:inherit!important}');
       }
 
       return out.join('\n');
@@ -820,7 +824,7 @@ window.__ModuleLoader__.load({
         'scheme.ember': '余烬',
         'scheme.abyss': '深渊',
         'scope.brand.title': '品牌标识区域',
-        'scope.brand.desc': '左上角标识行的文字与图标也跟随方案（背景默认已跟随；默认关闭）。',
+        'scope.brand.desc': '左上角标识行的文字与图标跟随方案的标题色 H1（背景默认已跟随；默认关闭）。',
         'scope.chrome.title': '其余界面区域',
         'scope.chrome.desc': '对话区以外界面的文字与图标也跟随方案（背景默认已跟随；默认关闭）。',
       },

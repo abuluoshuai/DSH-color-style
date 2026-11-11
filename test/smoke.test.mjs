@@ -352,6 +352,7 @@ test("scope switches: brand adds the logo-row scope, chrome folds the global lay
   const sheet = [...env.styleNodes.values()].find((node) => node.id === "dsh-color-style-sheet");
   assert.ok(sheet.textContent.includes('[class*="_logoRow"]'), "brand row scope painted");
   assert.ok(sheet.textContent.includes('{color:inherit!important}'), "brand subtree ink pinned");
+  assert.ok(sheet.textContent.includes('_brandIdentity'), "brand lockup hooks pinned");
   assert.equal(env.layers.has("dsh-color-style/chrome"), false, "brand switch does not fold chrome");
 
   // 其余区域开关
