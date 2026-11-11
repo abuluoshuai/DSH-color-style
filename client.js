@@ -15,7 +15,7 @@
  *   [data-conversation-content]); everywhere else ink follows only when its
  *   scope switch is on:
  *     - "Brand lockup": re-declares the set on the sidebar brand row
- *       ([class$="_logoRow"]) and pins the subtree ink, so the whale mark and
+ *       ([class*="_logoRow"]) and pins the subtree ink, so the whale mark and
  *       the wordmark (both currentColor) follow the palette.
  *     - "Rest of the interface": folds the ink set through
  *       ctx.theme.overrideTokens as a second layer AND pins the ink on the
@@ -706,7 +706,7 @@ window.__ModuleLoader__.load({
         mdRoot + ' :where(:not(pre)>code){color:' + inlineCodeInk + '}',
         /* the conversation header is part of the always-themed middle column;
            the host paints explicit colours on these rows, so pin them */
-        '[data-conversation-content] :is([class*="_header"]:has([class*="_crumb"]),[class*="_crumbs"],[class*="_crumbSeg"],[class*="_titleRow"],[class*="_titleCluster"],[class*="_viewTabs"],[class$="_tab"],[class$="_tabLabel"],[class$="_viewsMore"],[class$="_headerLeading"],[class$="_headerUtilities"],[class$="_headerActions"]) :where(span,div,button,svg,a){color:' + palette.text + '!important}',
+        '[data-conversation-content] :is([class*="_header"]:has([class*="_crumb"]),[class*="_crumbs"],[class*="_crumbSeg"],[class*="_titleRow"],[class*="_titleCluster"],[class*="_viewTabs"],[class*="_tab"],[class*="_tabLabel"],[class*="_viewsMore"],[class*="_headerLeading"],[class*="_headerUtilities"],[class*="_headerActions"]) :where(span,div,button,svg,a){color:' + palette.text + '!important}',
       ];
 
       if (!scopes.chrome && stock !== null) {
@@ -732,23 +732,23 @@ window.__ModuleLoader__.load({
            row is governed by its own switch and stays out of this list) */
         const ink = palette.text;
         out.push(
-          ':is([class$="_sidebarCol"],[class$="_rail"],[class$="_railIn"]) :where([class$="_newSession"],[class$="_newSessionLabel"],[class$="_newSessionShortcut"],[class$="_panelRow"],[class$="_panelTitle"],[class$="_panelIcon"],[class$="_panelGlyph"],[class$="_sectionHeader"],[class$="_sectionLabel"],[class$="_iconButton"],[class$="_sessionRow"],[class$="_projectRow"],[class$="_projectText"],[class$="_folder"],[class$="_groupTitle"],[class$="_title"],[class$="_time"],[class$="_meta"],[class$="_timestamp"],[class$="_chevron"],[class$="_arrow"],[class$="_dot"],[class$="_search"],[class$="_searchInput"],[class$="_searchButton"],[class$="_searchStatus"],[class$="_searchResultHeading"],[class$="_searchResultTitle"],[class$="_searchResultMeta"],[class$="_searchResultSnippet"],[class$="_searchResultWorkspace"],[class$="_sessionOverflowButton"],[class$="_hoverTitle"],[class$="_hoverPath"],[class$="_hoverTime"],[class$="_hoverStatus"],[class$="_footArea"],[class$="_footerActions"],[class$="_settingsArea"],[class$="_buildVersion"],[class$="_copyVersion"],[class$="_localBuildTitle"],[class$="_fallbackBrandName"],[class$="_localBuildTitle"],[class$="_moreAnchor"],[class$="_moreMenu"],[class$="_regionArea"],[class$="_quietBars"],[class$="_topStrip"]){color:' + ink + '!important}',
+          ':is([class*="_sidebarCol"],[class*="_rail"],[class*="_railIn"]) :where([class*="_newSession"],[class*="_newSessionLabel"],[class*="_newSessionShortcut"],[class*="_panelRow"],[class*="_panelTitle"],[class*="_panelIcon"],[class*="_panelGlyph"],[class*="_sectionHeader"],[class*="_sectionLabel"],[class*="_iconButton"],[class*="_sessionRow"],[class*="_projectRow"],[class*="_projectText"],[class*="_folder"],[class*="_groupTitle"],[class*="_title"],[class*="_time"],[class*="_meta"],[class*="_timestamp"],[class*="_chevron"],[class*="_arrow"],[class*="_dot"],[class*="_search"],[class*="_searchInput"],[class*="_searchButton"],[class*="_searchStatus"],[class*="_searchResultHeading"],[class*="_searchResultTitle"],[class*="_searchResultMeta"],[class*="_searchResultSnippet"],[class*="_searchResultWorkspace"],[class*="_sessionOverflowButton"],[class*="_hoverTitle"],[class*="_hoverPath"],[class*="_hoverTime"],[class*="_hoverStatus"],[class*="_footArea"],[class*="_footerActions"],[class*="_settingsArea"],[class*="_buildVersion"],[class*="_copyVersion"],[class*="_localBuildTitle"],[class*="_fallbackBrandName"],[class*="_localBuildTitle"],[class*="_moreAnchor"],[class*="_moreMenu"],[class*="_regionArea"],[class*="_quietBars"],[class*="_topStrip"]){color:' + ink + '!important}',
         );
         out.push(
-          ':is([class$="_sidebarCol"],[class$="_rail"],[class$="_railIn"]) :where([class$="_searchInput"])::placeholder{color:' + ink + '!important}',
+          ':is([class*="_sidebarCol"],[class*="_rail"],[class*="_railIn"]) :where([class*="_searchInput"])::placeholder{color:' + ink + '!important}',
         );
         /* composer toolbar and status rows read tokens through vars, but the
            host paints a few explicitly — pin them under the same scope */
         out.push(
-          ':is([data-composer-seat],[class$="_composerStack"],[class$="_composerHero"],[class$="_dock"]) :where(span,div,button,svg){color:inherit}',
+          ':is([data-composer-seat],[class*="_composerStack"],[class*="_composerHero"],[class*="_dock"]) :where(span,div,button,svg){color:inherit}',
         );
       }
 
       if (scopes.brand) {
-        out.push('[class$="_logoRow"]{' + allBlock + 'color:' + palette.text + ';background-color:' + sidebarFill + '}');
+        out.push('[class*="_logoRow"]{' + allBlock + 'color:' + palette.text + ';background-color:' + sidebarFill + '}');
         /* the whale mark and the wordmark paint with currentColor; pin the
            subtree so the host's own colour declarations cannot win */
-        out.push('[class$="_logoRow"] :where(span,svg,div,button,a){color:inherit!important}');
+        out.push('[class*="_logoRow"] :where(span,svg,div,button,a){color:inherit!important}');
       }
 
       return out.join('\n');

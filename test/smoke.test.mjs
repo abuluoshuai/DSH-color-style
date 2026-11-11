@@ -350,7 +350,7 @@ test("scope switches: brand adds the logo-row scope, chrome folds the global lay
   switches[0].props.onClick();
   assert.ok(env.store.get("dsh.color-style.scope.brand") === "1", "brand switch persisted");
   const sheet = [...env.styleNodes.values()].find((node) => node.id === "dsh-color-style-sheet");
-  assert.ok(sheet.textContent.includes('[class$="_logoRow"]'), "brand row scope painted");
+  assert.ok(sheet.textContent.includes('[class*="_logoRow"]'), "brand row scope painted");
   assert.ok(sheet.textContent.includes('{color:inherit!important}'), "brand subtree ink pinned");
   assert.equal(env.layers.has("dsh-color-style/chrome"), false, "brand switch does not fold chrome");
 
