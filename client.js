@@ -3,30 +3,32 @@
  * lifted from the Tinta Markdown reader (Paper, Sakura, Arctic, Meadow, Dusk,
  * Midnight, Dracula, Forest, Ember, Abyss).
  *
- * A palette applies in three scopes, controlled from its own Settings page:
+ * A palette splits into two token groups:
  *
- * 1. Always on: the window canvas plus the central conversation column. The
- *    full derived token set is re-declared on the conversation root
- *    ([data-conversation-content]) so the transcript — Markdown, bubbles, tool
- *    cards, reasoning rows, crumb header — follows the palette; the composer
- *    seat ([data-composer-seat]) is restored to the stock tokens so its own
- *    surfaces keep their own ink. Only the canvas token (--dsw-alias-bg-base)
- *    goes through ctx.theme.overrideTokens globally.
+ * - Surfaces (backgrounds, borders, scrollbar, fills) — ALWAYS follow the
+ *   palette, everywhere: the window canvas, the sidebar, the composer, menus
+ *   and panels. They go through ctx.theme.overrideTokens as one layer plus a
+ *   stylesheet fallback on html/body/#root, so every background matches the
+ *   central conversation area by default.
+ * - Ink (text, icons, brand accents, syntax colours) — the conversation
+ *   column always carries the full set (re-declared on
+ *   [data-conversation-content]); everywhere else ink follows only when its
+ *   scope switch is on:
+ *     - "Brand lockup": re-declares the set on the sidebar brand row
+ *       ([class$="_logoRow"]) and pins the subtree ink, so the whale mark and
+ *       the wordmark (both currentColor) follow the palette.
+ *     - "Rest of the interface": folds the ink set through
+ *       ctx.theme.overrideTokens as a second layer AND pins the ink on the
+ *       host-painted sidebar/composer rows, whose own stylesheets paint
+ *       explicit colours that inheritance cannot reach.
  *
- * 2. Brand lockup scope (off by default): re-declares the token set on the
- *    sidebar brand row ([class$="_logoRow"]) and paints it with the palette
- *    sidebar fill, so the whale mark and the wordmark (both currentColor)
- *    follow the palette.
+ * With both switches off the look is: palette surfaces everywhere, stock ink
+ * outside the conversation, palette ink inside it.
  *
- * 3. Rest-of-UI scope (off by default): folds the whole derived set through
- *    ctx.theme.overrideTokens as a second layer, so the sidebar, composer,
- *    menus, settings and every other surface follow the palette too.
- *
- * No overlay elements anywhere: backgrounds land only on existing elements;
- * translucent menu materials keep their alpha. The selected scheme owns the
- * Appearance light/dark mode (sticky, bounded reassert). The selected palette
- * and both scope switches persist in localStorage with a cookie mirror; a
- * leftover selection from the predecessor bundle migrates once.
+ * No overlay elements anywhere. The selected scheme owns the Appearance
+ * light/dark mode (sticky, bounded reassert). Selection and scope switches
+ * persist in localStorage with a cookie mirror; a leftover selection from the
+ * predecessor bundle migrates once.
  */
 window.__ModuleLoader__.load({
   id: 'dsh-color-style',
@@ -576,17 +578,102 @@ window.__ModuleLoader__.load({
     /* belt-and-suspenders stylesheet                                      */
     /* ------------------------------------------------------------------ */
 
+    /* ------------------------------------------------------------------ */
+    /* token groups — surfaces always follow; ink is switch-controlled     */
+    /* ------------------------------------------------------------------ */
+
+    /** Token names that paint foreground ink: text, icons, brand accents, syntax colours. */
+    const INK_TOKEN_NAMES = [
+      '--dsw-alias-label-primary',
+      '--dsw-alias-label-secondary',
+      '--dsw-alias-label-tertiary',
+      '--dsw-alias-label-caption',
+      '--dsw-alias-label-dimmed',
+      '--dsw-alias-label-primary-dimmed',
+      '--dsw-alias-label-primary-inverted',
+      '--dsw-alias-label-primary-foreground',
+      '--dsw-alias-label-primary-bluish',
+      '--dsw-alias-label-document-preview',
+      '--dsw-alias-brand-primary',
+      '--dsw-alias-brand-primary-invert',
+      '--dsw-alias-brand-primary-new-colorprimary-new-color',
+      '--dsw-alias-brand-text',
+      '--dsw-alias-button-primary-fill',
+      '--dsw-alias-button-primary-hover',
+      '--dsw-alias-button-primary-dimmed',
+      '--dsw-alias-button-info-fill',
+      '--dsw-alias-button-info-hover',
+      '--dsw-alias-button-contrast-fill',
+      '--dsw-alias-button-elevated-fill',
+      '--dsw-alias-button-floating-fill',
+      '--dsw-alias-button-floating-hover',
+      '--dsw-alias-button-ghost-active-fill',
+      '--dsw-alias-button-ghost-active-hover',
+      '--dsw-alias-button-ghost-active-border',
+      '--dsw-alias-link',
+      '--dsw-alias-state-business-primary',
+      '--dsw-alias-state-business-tertiary',
+      '--dsw-alias-state-idle-primary',
+      '--dsw-alias-state-success-tertiary',
+      '--dsw-alias-state-warn-tertiary',
+      '--dsw-alias-menu-icon',
+      '--dsw-alias-toast-label',
+      '--shiki-foreground',
+      '--shiki-token-constant',
+      '--shiki-token-string',
+      '--shiki-token-comment',
+      '--shiki-token-keyword',
+      '--shiki-token-parameter',
+      '--shiki-token-function',
+      '--shiki-token-string-expression',
+      '--shiki-token-punctuation',
+      '--shiki-token-link',
+    ];
+
+    /** The surface half (backgrounds, borders, scrollbar, fills) of a palette. */
+    function surfaceTokens(palette) {
+      const all = deriveTokens(palette);
+      const out = {};
+      for (const name of Object.keys(all)) {
+        if (!INK_TOKEN_NAMES.includes(name)) out[name] = all[name];
+      }
+      return out;
+    }
+
+    /** The ink half (text, icons, accents, syntax) of a palette. */
+    function inkTokens(palette) {
+      const all = deriveTokens(palette);
+      const out = {};
+      for (const name of INK_TOKEN_NAMES) out[name] = all[name];
+      return out;
+    }
+
+    /** Serialize a token map into declarations; optional !important. */
+    function tokenBlockOf(tokens, important) {
+      const suffix = important ? '!important' : '';
+      return (
+        Object.keys(tokens)
+          .map((name) => name + ':' + tokens[name] + suffix)
+          .join(';') + ';'
+      );
+    }
+
     /**
      * Compile the palette stylesheet for the current scope switches.
      *
-     * Always emitted: the window canvas colour, and the full derived token set
-     * re-declared on the conversation root so the transcript follows the
-     * palette. When the rest-of-UI switch is off, the composer seat (which
-     * hangs inside the conversation root) is restored to the stock tokens
-     * captured before any layer is applied, so its own surfaces keep their own
-     * ink. When the brand switch is on, the brand row gets the token set plus
-     * the palette sidebar fill; both brand artwork pieces paint with
-     * currentColor, so the scoped label tokens recolour them.
+     * Always: the window canvas colour; every surface token globally (layer
+     * plus html/body/#root fallback) so all backgrounds follow the central
+     * area; the full token set on the conversation root so the transcript —
+     * markdown, bubbles, tool cards, reasoning rows, crumb header — follows
+     * the palette including its ink; the conversation header rows pinned to
+     * the palette text colour, because the host paints explicit colours there.
+     *
+     * Rest-of-UI switch: the ink set goes global (layer plus #root/body
+     * fallback), the composer seat stops restoring stock ink, and the
+     * host-painted sidebar and composer rows are pinned to the palette ink.
+     *
+     * Brand switch: the brand row gets the full set, the palette sidebar fill,
+     * and a subtree colour pin — both artwork pieces paint with currentColor.
      * @param palette - scheme data.
      * @param stock - stock token values captured before layering (nullable).
      * @param scopes - { brand, chrome } scope switches.
@@ -597,10 +684,9 @@ window.__ModuleLoader__.load({
       const inlineCodeInk = mix(palette.text, palette.codeBg, 0.25);
       const dark = palette.scheme === 'dark';
       const sidebarFill = dark ? mix(palette.bg, '#ffffff', 0.03) : mix(palette.bg, palette.text, 0.035);
-      const tokens = deriveTokens(palette);
-      const tokenBlock = Object.keys(tokens)
-        .map((name) => name + ':' + tokens[name])
-        .join(';') + ';';
+      const allTokens = deriveTokens(palette);
+      const allBlock = tokenBlockOf(allTokens);
+      const surfaceBlock = tokenBlockOf(surfaceTokens(palette));
       const mdRoot = scopes.chrome
         ? ':where([class*="_markdown_"])'
         : ':where([data-conversation-content]) :where([class*="_markdown_"])';
@@ -608,43 +694,61 @@ window.__ModuleLoader__.load({
       const out = [
         /* the window canvas follows the palette in every scope combination */
         ':root,html,body{background-color:' + palette.bg + '}',
-        /* the conversation column: the full token set re-declared on the
-           conversation root; the transcript follows the palette while the rest
-           of the UI keeps its own theme until a scope switch opts it in */
-        '[data-conversation-content]{' + tokenBlock + '}',
+        /* every surface follows the palette by default, everywhere */
+        '#root{' + surfaceBlock + '}',
+        'body{' + tokenBlockOf(surfaceTokens(palette), true) + '}',
+        /* the conversation column carries the full set, ink included */
+        '[data-conversation-content]{' + allBlock + '}',
         mdRoot + ' :where(h1,h2,h3,h4,h5,h6){color:' + palette.heading + '}',
         mdRoot + ' :where(a){color:' + palette.link + '}',
         mdRoot + ' :where(a:focus,a:hover){text-decoration-color:' + palette.link + '}',
         mdRoot + ' :where(blockquote){border-left-color:' + palette.border + ';color:' + quoteInk + '}',
         mdRoot + ' :where(:not(pre)>code){color:' + inlineCodeInk + '}',
+        /* the conversation header is part of the always-themed middle column;
+           the host paints explicit colours on these rows, so pin them */
+        '[data-conversation-content] :is([class*="_header"]:has([class*="_crumb"]),[class*="_crumbs"],[class*="_crumbSeg"],[class*="_titleRow"],[class*="_titleCluster"],[class*="_viewTabs"],[class$="_tab"],[class$="_tabLabel"],[class$="_viewsMore"],[class$="_headerLeading"],[class$="_headerUtilities"],[class$="_headerActions"]) :where(span,div,button,svg,a){color:' + palette.text + '!important}',
       ];
 
       if (!scopes.chrome && stock !== null) {
-        const stockBlock = Object.keys(stock)
-          .filter((name) => stock[name] !== '')
-          .map((name) => name + ':' + stock[name])
-          .join(';') + ';';
-        if (stockBlock !== ';') {
-          out.push('[data-composer-seat]{' + stockBlock + '}');
+        /* the composer seat hangs inside the conversation root; with the
+           rest-of-UI ink switched off it keeps its own stock ink while its
+           surface follows the palette like every other background */
+        const stockInk = {};
+        for (const name of INK_TOKEN_NAMES) {
+          if (stock[name]) stockInk[name] = stock[name];
+        }
+        if (Object.keys(stockInk).length > 0) {
+          out.push('[data-composer-seat]{' + tokenBlockOf(stockInk) + '}');
         }
       }
 
       if (scopes.chrome) {
-        /* belt and suspenders for the rest-of-UI scope: the same set declared
-           on the mount root and, !important, on body itself. The body
-           declarations beat the stock values the theme presenter writes
-           inline, so the scope holds — canvas, conversation, composer and
-           every portalled menu — even where the overrideTokens folding does
-           not reach */
-        out.push('#root{' + tokenBlock + '}');
-        const bodyBlock = Object.keys(tokens)
-          .map((name) => name + ':' + tokens[name] + '!important')
-          .join(';') + ';';
-        out.push('body{' + bodyBlock + 'color:' + palette.text + '!important}');
+        /* ink goes global: layer (see applyPalette) plus the stylesheet
+           fallback on the mount root and body itself */
+        out.push('#root{' + allBlock + '}');
+        out.push('body{' + tokenBlockOf(allTokens, true) + 'color:' + palette.text + '!important}');
+        /* the host stylesheets paint explicit colours on these sidebar rows —
+           inheritance cannot reach them, so pin the palette ink (the brand
+           row is governed by its own switch and stays out of this list) */
+        const ink = palette.text;
+        out.push(
+          ':is([class$="_sidebarCol"],[class$="_rail"],[class$="_railIn"]) :where([class$="_newSession"],[class$="_newSessionLabel"],[class$="_newSessionShortcut"],[class$="_panelRow"],[class$="_panelTitle"],[class$="_panelIcon"],[class$="_panelGlyph"],[class$="_sectionHeader"],[class$="_sectionLabel"],[class$="_iconButton"],[class$="_sessionRow"],[class$="_projectRow"],[class$="_projectText"],[class$="_folder"],[class$="_groupTitle"],[class$="_title"],[class$="_time"],[class$="_meta"],[class$="_timestamp"],[class$="_chevron"],[class$="_arrow"],[class$="_dot"],[class$="_search"],[class$="_searchInput"],[class$="_searchButton"],[class$="_searchStatus"],[class$="_searchResultHeading"],[class$="_searchResultTitle"],[class$="_searchResultMeta"],[class$="_searchResultSnippet"],[class$="_searchResultWorkspace"],[class$="_sessionOverflowButton"],[class$="_hoverTitle"],[class$="_hoverPath"],[class$="_hoverTime"],[class$="_hoverStatus"],[class$="_footArea"],[class$="_footerActions"],[class$="_settingsArea"],[class$="_buildVersion"],[class$="_copyVersion"],[class$="_localBuildTitle"],[class$="_fallbackBrandName"],[class$="_localBuildTitle"],[class$="_moreAnchor"],[class$="_moreMenu"],[class$="_regionArea"],[class$="_quietBars"],[class$="_topStrip"]){color:' + ink + '!important}',
+        );
+        out.push(
+          ':is([class$="_sidebarCol"],[class$="_rail"],[class$="_railIn"]) :where([class$="_searchInput"])::placeholder{color:' + ink + '!important}',
+        );
+        /* composer toolbar and status rows read tokens through vars, but the
+           host paints a few explicitly — pin them under the same scope */
+        out.push(
+          ':is([data-composer-seat],[class$="_composerStack"],[class$="_composerHero"],[class$="_dock"]) :where(span,div,button,svg){color:inherit}',
+        );
       }
 
       if (scopes.brand) {
-        out.push('[class$="_logoRow"]{' + tokenBlock + 'color:' + palette.text + ';background-color:' + sidebarFill + '}');
+        out.push('[class$="_logoRow"]{' + allBlock + 'color:' + palette.text + ';background-color:' + sidebarFill + '}');
+        /* the whale mark and the wordmark paint with currentColor; pin the
+           subtree so the host's own colour declarations cannot win */
+        out.push('[class$="_logoRow"] :where(span,svg,div,button,a){color:inherit!important}');
       }
 
       return out.join('\n');
@@ -701,7 +805,7 @@ window.__ModuleLoader__.load({
         nav: '配色方案',
         title: '配色方案',
         description:
-          '十种来自 Markdown 阅读器的阅读配色：默认仅对中间的对话渲染区和整个窗口背景生效，可用下方开关扩展到品牌标识区域或其余界面区域。',
+          '十种来自 Markdown 阅读器的阅读配色：所有背景色与中间对话区（含文字）默认跟随方案；下方开关可让品牌标识行或其余界面的文字与图标也跟随。',
         reset: '恢复默认外观',
         light: '浅色',
         dark: '深色',
@@ -716,15 +820,15 @@ window.__ModuleLoader__.load({
         'scheme.ember': '余烬',
         'scheme.abyss': '深渊',
         'scope.brand.title': '品牌标识区域',
-        'scope.brand.desc': '配色同时应用到左上角的 DeepSeek Harness 标识行（默认关闭）。',
+        'scope.brand.desc': '左上角标识行的文字与图标也跟随方案（背景默认已跟随；默认关闭）。',
         'scope.chrome.title': '其余界面区域',
-        'scope.chrome.desc': '配色同时应用到对话区以外的界面：侧栏、输入框、菜单、设置页等（默认关闭）。',
+        'scope.chrome.desc': '对话区以外界面的文字与图标也跟随方案（背景默认已跟随；默认关闭）。',
       },
       en: {
         nav: 'Colour schemes',
         title: 'Colour schemes',
         description:
-          'Ten reading palettes from the Markdown viewer. Only the central conversation and the window canvas follow the palette by default; the switches below extend it to the brand lockup or the rest of the interface.',
+          'Ten reading palettes from the Markdown viewer. Every surface and the central conversation (ink included) follow the palette by default; the switches below extend the ink to the brand lockup or the rest of the interface.',
         reset: 'Restore default appearance',
         light: 'Light',
         dark: 'Dark',
@@ -739,9 +843,9 @@ window.__ModuleLoader__.load({
         'scheme.ember': 'Ember',
         'scheme.abyss': 'Abyss',
         'scope.brand.title': 'Brand lockup',
-        'scope.brand.desc': 'Also apply the palette to the DeepSeek Harness brand row in the top-left corner (off by default).',
+        'scope.brand.desc': 'The top-left brand row follows the palette ink too (surfaces already follow; off by default).',
         'scope.chrome.title': 'Rest of the interface',
-        'scope.chrome.desc': 'Also apply the palette outside the conversation: sidebar, composer, menus, settings (off by default).',
+        'scope.chrome.desc': 'Ink outside the conversation follows the palette too (surfaces already follow; off by default).',
       },
     };
 
@@ -896,16 +1000,13 @@ window.__ModuleLoader__.load({
           try {
             theme.setTheme(palette.scheme);
             dropPalette();
-            const tokens = deriveTokens(palette);
-            const stock = captureStockTokens(Object.keys(tokens));
-            /* always: the window canvas token */
-            layer = theme.overrideTokens(
-              LAYER_SOURCE,
-              asLayer({ '--dsw-alias-bg-base': tokens['--dsw-alias-bg-base'] }),
-            );
-            /* rest-of-UI scope: the whole derived set, globally */
+            const stock = captureStockTokens(Object.keys(deriveTokens(palette)));
+            /* surfaces always follow, everywhere (backgrounds, borders,
+               scrollbar, fills) — this is the group the Host folds reliably */
+            layer = theme.overrideTokens(LAYER_SOURCE, asLayer(surfaceTokens(palette)));
+            /* rest-of-UI switch: ink follows too */
             if (chromeScope) {
-              chromeLayer = theme.overrideTokens(CHROME_LAYER_SOURCE, asLayer(tokens));
+              chromeLayer = theme.overrideTokens(CHROME_LAYER_SOURCE, asLayer(inkTokens(palette)));
             }
             ensureStyleNode(STYLE_NODE_ID).textContent = compileSheet(palette, stock, {
               brand: brandScope,

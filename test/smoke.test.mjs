@@ -237,7 +237,9 @@ test("boot with a stored selection layers the palette and paints the window", ()
   const layer = env.layers.get("dsh-color-style");
   assert.equal(layer["--dsw-alias-bg-base"].light, "#fdf8f8");
   assert.equal(layer["--dsw-alias-bg-base"].dark, "#fdf8f8");
-  assert.equal(Object.keys(layer).length, 1, "only the canvas token is layered globally");
+  assert.ok(layer["--dsw-alias-bg-layer-1"], "surfaces follow the palette by default");
+  assert.ok(layer["--dsw-specific-sidebar-fill"], "sidebar surface follows by default");
+  assert.equal(layer["--dsw-alias-label-primary"], undefined, "ink is switch-controlled");
 
   const sheet = [...env.styleNodes.values()].find((node) => node.id === "dsh-color-style-sheet");
   assert.ok(sheet, "belt-and-suspenders sheet installed");
@@ -349,13 +351,21 @@ test("scope switches: brand adds the logo-row scope, chrome folds the global lay
   assert.ok(env.store.get("dsh.color-style.scope.brand") === "1", "brand switch persisted");
   const sheet = [...env.styleNodes.values()].find((node) => node.id === "dsh-color-style-sheet");
   assert.ok(sheet.textContent.includes('[class$="_logoRow"]'), "brand row scope painted");
+  assert.ok(sheet.textContent.includes('{color:inherit!important}'), "brand subtree ink pinned");
   assert.equal(env.layers.has("dsh-color-style/chrome"), false, "brand switch does not fold chrome");
 
   // 其余区域开关
   switches[1].props.onClick();
   assert.ok(env.store.get("dsh.color-style.scope.chrome") === "1", "chrome switch persisted");
-  assert.equal(env.layers.has("dsh-color-style/chrome"), true, "chrome layer folded");
-  assert.ok(!sheet.textContent.includes("[data-composer-seat]"), "composer restore dropped with chrome on");
+  assert.equal(env.layers.has("dsh-color-style/chrome"), true, "ink layer folded");
+  const inkLayer = env.layers.get("dsh-color-style/chrome");
+  assert.equal(inkLayer["--dsw-alias-label-primary"].light, "#3d3329", "ink layer carries palette text");
+  assert.equal(inkLayer["--dsw-alias-bg-base"], undefined, "ink layer carries no surfaces");
+  assert.ok(!sheet.textContent.includes("[data-composer-seat]{"), "composer stock-ink restore dropped with chrome on");
+  assert.ok(sheet.textContent.includes(":is([data-composer-seat]"), "composer ink pinned with chrome on");
+  assert.ok(sheet.textContent.includes("--dsw-alias-label-primary:#3d3329!important"), "ink fallback pinned on body");
+  assert.ok(sheet.textContent.includes("body{--dsw-alias"), "body carries the important token block");
+  assert.ok(sheet.textContent.includes("_panelRow"), "host-painted sidebar rows pinned");
   assert.ok(
     sheet.textContent.indexOf(':where([class*="_markdown_"]) :where(h1') >= 0,
     "markdown rules widen beyond the conversation when chrome is on",
