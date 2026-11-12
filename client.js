@@ -927,7 +927,7 @@ window.__ModuleLoader__.load({
     /* ------------------------------------------------------------------ */
 
     return {
-      inject: ['slots', 'theme', 'locale'],
+      inject: ['slots', 'theme', 'locale', 'contextMenus', 'uiSession'],
       apply(ctx) {
         const theme = ctx.theme;
         const locale = ctx.locale;
@@ -1377,13 +1377,13 @@ window.__ModuleLoader__.load({
             id: 'color-style.mark-unread',
             target: 'session',
             order: 550,
-            resolve: () => [
+            resolve: (target) => [
               {
                 id: 'mark-unread',
                 label: locale.bind(LOCALE_NS)('menu.markUnread'),
-                run: (item) => {
-                  markUnread(item?.sessionId);
-                },
+                /* the host activates items with run() and no arguments, so the
+                   session id must be captured here, in the closure */
+                run: () => markUnread(target?.sessionId),
               },
             ],
           });

@@ -10,7 +10,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="license" />
-  <img src="https://img.shields.io/badge/version-0.4.0-informational.svg" alt="version" />
+  <img src="https://img.shields.io/badge/version-0.4.1-informational.svg" alt="version" />
   <img src="https://img.shields.io/badge/DSH-0.2.2--rc.1%2B-4d6bfe" alt="DSH" />
 </p>
 

@@ -1,6 +1,6 @@
 {
   "name": "dsh-color-style",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Ten Markdown-reader colour schemes for DeepSeek Harness: full-window background, Markdown typography, and a dedicated Settings page.",
   "type": "module",
   "license": "MIT",
@@ -57,7 +57,9 @@
       "inject": [
         "@deepseek-ai/dsh-client-locale",
         "@deepseek-ai/dsh-client-ui-theme",
-        "@deepseek-ai/dsh-client-ui-settings-general"
+        "@deepseek-ai/dsh-client-ui-settings-general",
+        "@deepseek-ai/dsh-client-ui-context-menu",
+        "@deepseek-ai/dsh-client-ui-session"
       ]
     }
   },

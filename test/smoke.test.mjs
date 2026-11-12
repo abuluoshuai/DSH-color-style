@@ -268,7 +268,7 @@ test("module registers through the client module loader", () => {
   assert.ok(loaded, "window.__ModuleLoader__.load captured the definition");
   assert.equal(loaded.id, "dsh-color-style");
   const plugin = loaded.factory(() => ({ createElement: () => null, useState: (v) => [v, () => {}], useEffect: () => {}, memo: (fn) => fn }));
-  assert.deepEqual(plugin.inject, ["slots", "theme", "locale"]);
+  assert.deepEqual(plugin.inject, ["slots", "theme", "locale", "contextMenus", "uiSession"]);
   assert.equal(typeof plugin.apply, "function");
 });
 
@@ -443,7 +443,7 @@ test("session status: sheet, menu registration and unread marking", () => {
 
   // 右键菜单动作 → 标记未读
   const item = env.ctx.menuRegistrations[0].resolve({ sessionId: "sess-1" }, undefined)[0];
-  item.run({ sessionId: "sess-1" });
+  item.run();
   assert.ok(JSON.parse(env.store.get("dsh.color-style.status.unread") ?? "[]").includes("sess-1"), "unread persisted");
 
   // 状态快照驱动
