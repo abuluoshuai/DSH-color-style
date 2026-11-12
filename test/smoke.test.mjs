@@ -436,6 +436,8 @@ test("session status: sheet, menu registration and unread marking", () => {
     assert.ok(statusNode.textContent.includes('data-dcs-state="' + state + '"'), "status rule: " + state);
   }
   assert.ok(statusNode.textContent.includes("@keyframes dcs-status-sweep"), "sweep animation present");
+  assert.ok(statusNode.textContent.includes("animation:dcs-status-sweep 3s linear infinite"), "sweep runs at the chosen 3s cycle");
+  assert.ok(statusNode.textContent.includes("in srgb, #4ade80"), "completed uses the brighter green");
   assert.ok(statusNode.textContent.includes("@keyframes dcs-status-blink"), "blink animation present");
 
   assert.equal(env.ctx.menuRegistrations.length, 1, "session menu contribution registered");

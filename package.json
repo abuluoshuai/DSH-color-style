@@ -1,6 +1,6 @@
 {
   "name": "dsh-color-style",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "Ten Markdown-reader colour schemes for DeepSeek Harness: full-window background, Markdown typography, and a dedicated Settings page.",
   "type": "module",
   "license": "MIT",

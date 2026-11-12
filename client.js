@@ -45,10 +45,11 @@ window.__ModuleLoader__.load({
     const STATUS_COLORS_KEY = 'dsh.color-style.status.colors';
     const STATUS_UNREAD_KEY = 'dsh.color-style.status.unread';
     const STATUS_ALPHA_KEY = 'dsh.color-style.status.alpha';
+    const STATUS_SPEED_KEY = 'dsh.color-style.status.speed';
     const STATUS_STATE_ATTR = 'data-dcs-state';
     const DEFAULT_STATUS_COLORS = {
       working: '#f5c542',
-      completed: '#34d399',
+      completed: '#4ade80',
       attention: '#fb923c',
       error: '#ef4444',
     };
@@ -887,6 +888,7 @@ window.__ModuleLoader__.load({
         'status.attention': '等待选择',
         'status.error': '异常',
         'status.alpha': '背景浓度',
+        'status.speed': '扫光速度',
         'menu.markUnread': '标记为未读',
       },
       en: {
@@ -918,6 +920,7 @@ window.__ModuleLoader__.load({
         'status.attention': 'Needs a choice',
         'status.error': 'Error',
         'status.alpha': 'Tint strength',
+        'status.speed': 'Sweep speed',
         'menu.markUnread': 'Mark unread',
       },
     };
@@ -1130,6 +1133,7 @@ window.__ModuleLoader__.load({
 
         const statusColors = readStatusColors();
         let statusAlpha = readStatusAlpha();
+        let statusSpeed = readStatusSpeed();
         const manualUnread = readUnreadSet();
         const errorSessions = new Set();
         let statusSnapshot = new Map();
@@ -1176,6 +1180,23 @@ window.__ModuleLoader__.load({
           }
         }
 
+        function readStatusSpeed() {
+          try {
+            const n = Number(window.localStorage.getItem(STATUS_SPEED_KEY));
+            return Number.isFinite(n) && n > 0 ? Math.min(8, Math.max(1, n)) : 3;
+          } catch (error) {
+            return 3;
+          }
+        }
+
+        function writeStatusSpeed() {
+          try {
+            window.localStorage.setItem(STATUS_SPEED_KEY, String(statusSpeed));
+          } catch (error) {
+            /* private mode */
+          }
+        }
+
         function readUnreadSet() {
           try {
             const raw = window.localStorage.getItem(STATUS_UNREAD_KEY);
@@ -1201,8 +1222,8 @@ window.__ModuleLoader__.load({
           const accentPct = Math.min(70, pct + 26);
           const row = '[data-row-key^="session:"]';
           return [
-            row + '[' + STATUS_STATE_ATTR + '="working"]{background-color:color-mix(in srgb, ' + statusColors.working + ' ' + pct + '%, transparent)!important;background-image:linear-gradient(90deg, transparent 0%, color-mix(in srgb, ' + statusColors.working + ' ' + accentPct + '%, transparent) 50%, transparent 100%);background-size:200% 100%;animation:dcs-status-sweep 1.8s linear infinite}',
-            row + '[' + STATUS_STATE_ATTR + '="completed"]{background-color:color-mix(in srgb, ' + statusColors.completed + ' ' + pct + '%, transparent)!important}',
+            row + '[' + STATUS_STATE_ATTR + '="working"]{background-color:color-mix(in srgb, ' + statusColors.working + ' ' + pct + '%, transparent)!important;background-image:linear-gradient(90deg, transparent 0%, color-mix(in srgb, ' + statusColors.working + ' ' + accentPct + '%, transparent) 50%, transparent 100%);background-size:200% 100%;animation:dcs-status-sweep ' + statusSpeed + 's linear infinite}',
+            row + '[' + STATUS_STATE_ATTR + '="completed"]{background-color:color-mix(in srgb, ' + statusColors.completed + ' ' + Math.min(70, pct + 4) + '%, transparent)!important}',
             row + '[' + STATUS_STATE_ATTR + '="attention"]{animation:dcs-status-blink 1.2s steps(2,end) infinite}',
             row + '[' + STATUS_STATE_ATTR + '="error"]{background-color:color-mix(in srgb, ' + statusColors.error + ' ' + Math.min(70, pct + 4) + '%, transparent)!important}',
             '@keyframes dcs-status-sweep{from{background-position:200% 0}to{background-position:-200% 0}}',
@@ -1673,6 +1694,26 @@ window.__ModuleLoader__.load({
                   },
                 }),
                 h('span', { className: 'dcs-colorvalue' }, statusAlpha + '%'),
+              ),
+              h(
+                'label',
+                { className: 'dcs-colorrow' },
+                h('span', { className: 'dcs-colorlabel' }, t('status.speed')),
+                h('input', {
+                  type: 'range',
+                  className: 'dcs-alpha',
+                  min: 1,
+                  max: 6,
+                  step: 0.5,
+                  value: statusSpeed,
+                  onChange: (event) => {
+                    statusSpeed = Number(event.target.value);
+                    writeStatusSpeed();
+                    refreshStatusSheet();
+                    bump();
+                  },
+                }),
+                h('span', { className: 'dcs-colorvalue' }, statusSpeed + 's'),
               ),
             ),
             selected === null
