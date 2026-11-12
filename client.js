@@ -712,9 +712,14 @@ window.__ModuleLoader__.load({
         mdScope + ' :where(:not(pre)>code){color:' + palette.code + '}',
         /* code blocks take the code ink, like the reader's plain code lines */
         '[data-conversation-content] :where([class*="_markdown_"]) .md-code-block{color:' + palette.code + '}',
-        /* tables and rules follow the reader: codeBackground headers, 18% text rules */
+        /* tables and rules follow the reader: full 1px grid in 18% text ink,
+           codeBackground headers and symmetric 6/13 padding (the host zeroes
+           the first/last cell padding for its borderless table look) */
+        mdScope + ' :where(table){border-collapse:collapse;margin:1em 0}',
+        mdScope + ' :where(th,td){border:1px solid ' + ruleBorder + ';padding:6px 13px}',
+        mdScope + ' th:first-child, ' + mdScope + ' td:first-child{padding-left:13px}',
+        mdScope + ' th:last-child, ' + mdScope + ' td:last-child{padding-right:13px}',
         mdScope + ' :where(th){background:' + palette.codeBg + '}',
-        mdScope + ' :where(th,td){border-bottom-color:' + ruleBorder + '}',
         mdScope + ' :where(hr){background:' + ruleBorder + '}',
         /* syntax colours: the compact transcript forces inherit on spans, so
            restore each token colour from its own inline CSS variable */

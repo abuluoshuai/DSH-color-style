@@ -250,6 +250,8 @@ test("boot with a stored selection layers the palette and paints the window", ()
   assert.ok(sheet.textContent.includes(":not(pre)>code"), "inline code ink present");
   assert.ok(sheet.textContent.includes(":not(pre)>code){color:#8b5570}"), "inline code ink follows the code field");
   assert.ok(sheet.textContent.includes(".md-code-block{color:#8b5570}"), "code block ink follows the code field");
+  assert.ok(sheet.textContent.includes(':where(th,td){border:1px solid'), "table grid follows the reader");
+  assert.ok(sheet.textContent.includes('td:first-child{padding-left:13px}'), "first column padding restored");
   assert.ok(sheet.textContent.includes("[data-composer-seat]{"), "composer restored to stock while chrome is off");
   assert.ok(!sheet.textContent.includes("_logoRow"), "brand scope stays off by default");
   assert.equal(env.store.get("dsh.color-style.active"), "sakura");
