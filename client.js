@@ -118,7 +118,7 @@ window.__ModuleLoader__.load({
         heading: '#2A1F16',
         link: '#B85A3C',
         accent: '#B85A3C',
-        codeBg: '#EDE6DA',
+        codeBg: '#EDE6DA', code: '#6B5344',
         border: '#C4B8A8',
         keyword: '#8B4513',
         string: '#3E7D5A',
@@ -136,7 +136,7 @@ window.__ModuleLoader__.load({
         heading: '#C44569',
         link: '#D25980',
         accent: '#C44569',
-        codeBg: '#F8ECF0',
+        codeBg: '#F8ECF0', code: '#8B5570',
         border: '#E8B4C0',
         keyword: '#C44569',
         string: '#4E9B6F',
@@ -154,7 +154,7 @@ window.__ModuleLoader__.load({
         heading: '#1A365D',
         link: '#2B6CB0',
         accent: '#2B6CB0',
-        codeBg: '#EBF8FF',
+        codeBg: '#EBF8FF', code: '#285E61',
         border: '#A0C4E8',
         keyword: '#2B6CB0',
         string: '#38795B',
@@ -172,7 +172,7 @@ window.__ModuleLoader__.load({
         heading: '#1C4532',
         link: '#2F855A',
         accent: '#2F855A',
-        codeBg: '#E6FFED',
+        codeBg: '#E6FFED', code: '#4A5568',
         border: '#9AE6B4',
         keyword: '#2F6B4F',
         string: '#A0742C',
@@ -190,7 +190,7 @@ window.__ModuleLoader__.load({
         heading: '#9C4221',
         link: '#A66A12',
         accent: '#A66A12',
-        codeBg: '#FEF5E7',
+        codeBg: '#FEF5E7', code: '#5F5030',
         border: '#E8C48D',
         keyword: '#9C4221',
         string: '#4E8A5A',
@@ -208,7 +208,7 @@ window.__ModuleLoader__.load({
         heading: '#F0F4F8',
         link: '#38C6E4',
         accent: '#38C6E4',
-        codeBg: '#1B263B',
+        codeBg: '#1B263B', code: '#90E0EF',
         border: '#415A77',
         keyword: '#38C6E4',
         string: '#9ADBA4',
@@ -226,7 +226,7 @@ window.__ModuleLoader__.load({
         heading: '#FF79C6',
         link: '#8BE9FD',
         accent: '#BD93F9',
-        codeBg: '#21222C',
+        codeBg: '#21222C', code: '#50FA7B',
         border: '#6272A4',
         keyword: '#FF79C6',
         string: '#F1FA8C',
@@ -244,7 +244,7 @@ window.__ModuleLoader__.load({
         heading: '#9AE6B4',
         link: '#68D391',
         accent: '#68D391',
-        codeBg: '#1A2A23',
+        codeBg: '#1A2A23', code: '#81E6D9',
         border: '#4A6E5A',
         keyword: '#9AE6B4',
         string: '#D9CB7E',
@@ -262,7 +262,7 @@ window.__ModuleLoader__.load({
         heading: '#F6AD55',
         link: '#F1975A',
         accent: '#F1975A',
-        codeBg: '#252019',
+        codeBg: '#252019', code: '#FC8181',
         border: '#5C4A3A',
         keyword: '#F6AD55',
         string: '#A8C98A',
@@ -280,7 +280,7 @@ window.__ModuleLoader__.load({
         heading: '#2EE6CF',
         link: '#FF4DD8',
         accent: '#2EE6CF',
-        codeBg: '#0F0F0F',
+        codeBg: '#0F0F0F', code: '#B8F53C',
         border: '#333333',
         keyword: '#FF4DD8',
         string: '#B8F53C',
@@ -417,7 +417,8 @@ window.__ModuleLoader__.load({
 
       /* markdown */
       const codeBanner = mix(codeBg, fg, 0.05);
-      const inlineCode = dark ? mix(codeBg, '#ffffff', 0.05) : mix(codeBg, '#ffffff', 0.35);
+      /* the inline chip sits on the codeBackground, exactly like the reader */
+      const inlineCode = codeBg;
       const segmentUnselected = dark ? mix(bg, '#ffffff', 0.06) : mix(bg, fg, 0.05);
       const citation = dark ? mix(bg, '#ffffff', 0.1) : mix(bg, fg, 0.08);
       const markdownTag = dark ? mix(bg, '#ffffff', 0.08) : mix(bg, fg, 0.07);
@@ -680,16 +681,17 @@ window.__ModuleLoader__.load({
      * @returns stylesheet text.
      */
     function compileSheet(palette, stock, scopes) {
-      const quoteInk = mix(palette.text, palette.bg, 0.22);
-      const inlineCodeInk = mix(palette.text, palette.codeBg, 0.25);
+      /* Tinta renders quotes as 65% text over the page colour */
+      const quoteInk = mix(palette.text, palette.bg, 0.35);
+      const ruleBorder = alpha(palette.text, 0.18);
       const dark = palette.scheme === 'dark';
       const sidebarFill = dark ? mix(palette.bg, '#ffffff', 0.03) : mix(palette.bg, palette.text, 0.035);
       const allTokens = deriveTokens(palette);
       const allBlock = tokenBlockOf(allTokens);
       const surfaceBlock = tokenBlockOf(surfaceTokens(palette));
-      const mdRoot = scopes.chrome
-        ? ':where([class*="_markdown_"])'
-        : ':where([data-conversation-content]) :where([class*="_markdown_"])';
+      const mdScope = scopes.chrome
+        ? '#root [class*="_markdown_"]'
+        : '[data-conversation-content] [class*="_markdown_"]';
 
       const out = [
         /* the window canvas follows the palette in every scope combination */
@@ -699,11 +701,37 @@ window.__ModuleLoader__.load({
         'body{' + tokenBlockOf(surfaceTokens(palette), true) + '}',
         /* the conversation column carries the full set, ink included */
         '[data-conversation-content]{' + allBlock + '}',
-        mdRoot + ' :where(h1,h2,h3,h4,h5,h6){color:' + palette.heading + '}',
-        mdRoot + ' :where(a){color:' + palette.link + '}',
-        mdRoot + ' :where(a:focus,a:hover){text-decoration-color:' + palette.link + '}',
-        mdRoot + ' :where(blockquote){border-left-color:' + palette.border + ';color:' + quoteInk + '}',
-        mdRoot + ' :where(:not(pre)>code){color:' + inlineCodeInk + '}',
+        mdScope + ' :where(h1,h2,h3,h4,h5,h6){color:' + palette.heading + '}',
+        /* the reader underlines h1 with the accent colour */
+        mdScope + ' :where(h1){border-bottom:2px solid ' + palette.accent + ';padding-bottom:8px}',
+        mdScope + ' :where(a){color:' + palette.link + '}',
+        mdScope + ' :where(a:focus,a:hover){text-decoration-color:' + palette.link + '}',
+        /* quotes: 65% text ink over a 4px blockquoteBorder bar */
+        mdScope + ' :where(blockquote){border-left:4px solid ' + palette.border + ';color:' + quoteInk + '}',
+        /* inline chips take the code ink on the codeBackground chip */
+        mdScope + ' :where(:not(pre)>code){color:' + palette.code + '}',
+        /* code blocks take the code ink, like the reader's plain code lines */
+        '[data-conversation-content] :where([class*="_markdown_"]) .md-code-block{color:' + palette.code + '}',
+        /* tables and rules follow the reader: codeBackground headers, 18% text rules */
+        mdScope + ' :where(th){background:' + palette.codeBg + '}',
+        mdScope + ' :where(th,td){border-bottom-color:' + ruleBorder + '}',
+        mdScope + ' :where(hr){background:' + ruleBorder + '}',
+        /* syntax colours: the compact transcript forces inherit on spans, so
+           restore each token colour from its own inline CSS variable */
+        ...[
+          '--shiki-token-keyword',
+          '--shiki-token-constant',
+          '--shiki-token-comment',
+          '--shiki-token-function',
+          '--shiki-token-parameter',
+          '--shiki-token-punctuation',
+          '--shiki-token-link',
+          '--shiki-token-string',
+          '--shiki-token-string-expression',
+        ].map(
+          (name) =>
+            '[data-conversation-content] span[style*="' + name + '"]{color:var(' + name + ')!important}',
+        ),
         /* the conversation header is part of the always-themed middle column;
            the host paints explicit colours on these rows, so pin them */
         '[data-conversation-content] :is([class*="_header"]:has([class*="_crumb"]),[class*="_crumbs"],[class*="_crumbSeg"],[class*="_titleRow"],[class*="_titleCluster"],[class*="_viewTabs"],[class*="_tab"],[class*="_tabLabel"],[class*="_viewsMore"],[class*="_headerLeading"],[class*="_headerUtilities"],[class*="_headerActions"]) :where(span,div,button,svg,a){color:' + palette.text + '!important}',

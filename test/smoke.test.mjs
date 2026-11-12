@@ -248,6 +248,8 @@ test("boot with a stored selection layers the palette and paints the window", ()
   assert.ok(sheet.textContent.includes("--shiki-token-keyword:#c44569"), "syntax tokens scoped to the conversation");
   assert.ok(sheet.textContent.includes("[class*=\"_markdown_\"]"), "markdown scoping present");
   assert.ok(sheet.textContent.includes(":not(pre)>code"), "inline code ink present");
+  assert.ok(sheet.textContent.includes(":not(pre)>code){color:#8b5570}"), "inline code ink follows the code field");
+  assert.ok(sheet.textContent.includes(".md-code-block{color:#8b5570}"), "code block ink follows the code field");
   assert.ok(sheet.textContent.includes("[data-composer-seat]{"), "composer restored to stock while chrome is off");
   assert.ok(!sheet.textContent.includes("_logoRow"), "brand scope stays off by default");
   assert.equal(env.store.get("dsh.color-style.active"), "sakura");
@@ -368,7 +370,7 @@ test("scope switches: brand adds the logo-row scope, chrome folds the global lay
   assert.ok(sheet.textContent.includes("body{--dsw-alias"), "body carries the important token block");
   assert.ok(sheet.textContent.includes("_panelRow"), "host-painted sidebar rows pinned");
   assert.ok(
-    sheet.textContent.indexOf(':where([class*="_markdown_"]) :where(h1') >= 0,
+    sheet.textContent.indexOf('#root [class*="_markdown_"] :where(h1') >= 0,
     "markdown rules widen beyond the conversation when chrome is on",
   );
 

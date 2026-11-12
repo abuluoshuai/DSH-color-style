@@ -10,7 +10,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="license" />
-  <img src="https://img.shields.io/badge/version-0.3.1-informational.svg" alt="version" />
+  <img src="https://img.shields.io/badge/version-0.3.2-informational.svg" alt="version" />
   <img src="https://img.shields.io/badge/DSH-0.2.2--rc.1%2B-4d6bfe" alt="DSH" />
 </p>
 
@@ -20,6 +20,7 @@
 
 - **所有背景色默认跟随方案** —— 表面组经 `overrideTokens` 全局生效，并在 `html/body`（`!important`）与 `#root` 做样式表级兜底：窗口画布、侧栏、输入框、菜单、弹层、气泡、代码块、diff 底色等全部跟随，不再分区域。
 - **中间对话区（含文字）默认跟随方案** —— 完整令牌集重新声明在对话区根节点（`[data-conversation-content]`）上：Markdown 容器、标题、链接、行内代码、引用块、Shiki 语法高亮、气泡、思考行、会话头部面包屑与页签（对宿主硬编码颜色的行做 `!important` 钉色）。
+  - Markdown 逐元素对齐 Tinta 渲染：标题用 heading、链接用 link、行内代码与代码块正文用 `code` 墨色（行内 chip 底色 = `codeBackground`）、引用块 65% 文字色 + 4px 边框、表格表头 `codeBackground` 底色、h1 带 accent 下划线、行间规则用 18% 文字色；Shiki 语法色逐令牌恢复（紧凑视图强制继承的规则也会被压回）。
 - **两个作用域开关（默认关闭），控制的是墨水（文字与图标）**：
   - 「品牌标识区域」—— 左上角 DeepSeek Harness 标识行（`[class*="_logoRow"]`）的墨水跟随方案的标题色（H1）：整行铺方案侧栏底色，子树与内层钩子（`_brandIdentity`/`_brandMark`/`_brandName`）钉色（鲸鱼标与字标均为 currentColor）。
   - 「其余界面区域」—— 对话区以外界面的墨水跟随方案：墨水令牌组经 `overrideTokens` 折叠为第二层，并在 `body`/`#root` 做样式表级兜底，同时钉色宿主硬编码颜色的侧栏行、搜索框、页脚与输入框内部元素。
