@@ -34,6 +34,11 @@ function makeReactStub() {
   };
 }
 
+globalThis.MutationObserver = class {
+  observe() {}
+  disconnect() {}
+};
+
 function makeEnvironment({ stored = null, legacy = null, preference = "dark" } = {}) {
   const store = new Map();
   if (stored !== null) store.set("dsh.color-style.active", stored);
@@ -51,6 +56,12 @@ function makeEnvironment({ stored = null, legacy = null, preference = "dark" } =
   });
 
   const documentStub = {
+    body: {},
+    addEventListener() {},
+    removeEventListener() {},
+    querySelectorAll() {
+      return [];
+    },
     getElementById(id) {
       return styleNodes.get(id) ?? null;
     },
@@ -76,6 +87,31 @@ function makeEnvironment({ stored = null, legacy = null, preference = "dark" } =
     handlers: new Map(),
     slotFactories: new Map(),
     registrations: [],
+    menuRegistrations: [],
+    statusListeners: [],
+    statusSnapshot: new Map(),
+    get(name) {
+      if (name === "uiSession") {
+        return {
+          sessionStatus: {
+            getSnapshot: () => ctx.statusSnapshot,
+            subscribe: (listener) => {
+              ctx.statusListeners.push(listener);
+              return () => {};
+            },
+          },
+        };
+      }
+      if (name === "contextMenus") {
+        return {
+          register: (input) => {
+            ctx.menuRegistrations.push(input);
+            return () => {};
+          },
+        };
+      }
+      return undefined;
+    },
     theme: {
       setTheme(next) {
         preferenceNow = next;
@@ -124,6 +160,14 @@ function makeEnvironment({ stored = null, legacy = null, preference = "dark" } =
   };
 
   globalThis.window = {
+    MutationObserver: class {
+      observe() {}
+      disconnect() {}
+    },
+    Element: class {},
+    requestAnimationFrame() {
+      return 1;
+    },
     getComputedStyle() {
       return { getPropertyValue: () => "#101014" };
     },
@@ -380,4 +424,33 @@ test("scope switches: brand adds the logo-row scope, chrome folds the global lay
   switches[1].props.onClick();
   assert.equal(env.layers.has("dsh-color-style/chrome"), false, "chrome layer disposed");
   assert.ok(!env.store.has("dsh.color-style.scope.chrome"), "chrome switch cleared");
+});
+
+test("session status: sheet, menu registration and unread marking", () => {
+  const env = makeEnvironment({ stored: "paper", preference: "light" });
+  boot(env);
+
+  const statusNode = [...env.styleNodes.values()].find((node) => node.id === "dsh-color-style-status");
+  assert.ok(statusNode, "status sheet installed");
+  for (const state of ["working", "completed", "attention", "error"]) {
+    assert.ok(statusNode.textContent.includes('data-dcs-state="' + state + '"'), "status rule: " + state);
+  }
+  assert.ok(statusNode.textContent.includes("@keyframes dcs-status-sweep"), "sweep animation present");
+  assert.ok(statusNode.textContent.includes("@keyframes dcs-status-blink"), "blink animation present");
+
+  assert.equal(env.ctx.menuRegistrations.length, 1, "session menu contribution registered");
+  assert.equal(env.ctx.menuRegistrations[0].target, "session");
+
+  // 右键菜单动作 → 标记未读
+  const item = env.ctx.menuRegistrations[0].resolve({ sessionId: "sess-1" }, undefined)[0];
+  item.run({ sessionId: "sess-1" });
+  assert.ok(JSON.parse(env.store.get("dsh.color-style.status.unread") ?? "[]").includes("sess-1"), "unread persisted");
+
+  // 状态快照驱动
+  env.ctx.statusSnapshot.set("sess-2", { running: true });
+  env.ctx.statusSnapshot.set("sess-3", { pendingInteraction: { kind: "approval" } });
+  env.ctx.statusSnapshot.set("sess-4", { completionUnread: true });
+  for (const listener of env.ctx.statusListeners) listener();
+  // 行标记在真实 DOM 中验证（jsdom harness）；此处仅确认订阅已建立
+  assert.ok(env.ctx.statusListeners.length >= 1, "status subscription wired");
 });

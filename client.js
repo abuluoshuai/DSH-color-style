@@ -41,6 +41,17 @@ window.__ModuleLoader__.load({
     const LEGACY_STORAGE_KEY = 'dsh.tinta-themes.active';
     const LOCALE_NS = 'settings.color-style';
     const STYLE_NODE_ID = 'dsh-color-style-sheet';
+    const STATUS_NODE_ID = 'dsh-color-style-status';
+    const STATUS_COLORS_KEY = 'dsh.color-style.status.colors';
+    const STATUS_UNREAD_KEY = 'dsh.color-style.status.unread';
+    const STATUS_ALPHA_KEY = 'dsh.color-style.status.alpha';
+    const STATUS_STATE_ATTR = 'data-dcs-state';
+    const DEFAULT_STATUS_COLORS = {
+      working: '#f5c542',
+      completed: '#34d399',
+      attention: '#fb923c',
+      error: '#ef4444',
+    };
     const UI_STYLE_NODE_ID = 'dsh-color-style-ui';
     const CHROME_LAYER_SOURCE = 'dsh-color-style/chrome';
     const BRAND_SCOPE_KEY = 'dsh.color-style.scope.brand';
@@ -817,6 +828,15 @@ window.__ModuleLoader__.load({
       ".dcs-switch[aria-checked='true']{background:var(--dsw-alias-brand-primary);border-color:transparent}",
       '.dcs-knob{position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:var(--dsw-alias-switch-thumb);transition:left .15s}',
       ".dcs-switch[aria-checked='true'] .dcs-knob{left:18px}",
+      '.dcs-status-head{display:flex;flex-direction:column;gap:2px;margin-top:4px}',
+      '.dcs-status-title{font-size:14px;line-height:22px;color:var(--dsw-alias-label-primary)}',
+      '.dcs-status-desc{font-size:12px;line-height:18px;color:var(--dsw-alias-label-secondary)}',
+      '.dcs-colors{display:flex;flex-direction:column;gap:6px}',
+      '.dcs-colorrow{display:flex;align-items:center;gap:10px;padding:6px 2px}',
+      '.dcs-colorlabel{font-size:12px;line-height:18px;color:var(--dsw-alias-label-primary);min-width:96px}',
+      '.dcs-color{width:34px;height:22px;padding:0;border:.5px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-xs);background:0 0;cursor:pointer}',
+      '.dcs-colorvalue{font-size:11px;color:var(--dsw-alias-label-tertiary);font-family:var(--ds-font-family-code)}',
+      '.dcs-alpha{flex:1;max-width:180px}',
       '.dcs-reset{align-self:flex-start;border:0;background:0 0;padding:2px 0;color:var(--dsw-alias-link);font:inherit;font-size:12px;line-height:18px;cursor:pointer}',
       '.dcs-reset:hover{text-decoration:underline}',
     ].join('\n');
@@ -860,6 +880,14 @@ window.__ModuleLoader__.load({
         'scope.brand.desc': '左上角标识行的文字与图标跟随方案的标题色 H1（背景默认已跟随；默认关闭）。',
         'scope.chrome.title': '其余界面区域',
         'scope.chrome.desc': '对话区以外界面的文字与图标也跟随方案（背景默认已跟随；默认关闭）。',
+        'status.title': '会话状态背景',
+        'status.desc': '通用的会话行状态色（与配色方案无关）：工作中黄色扫光、完成未读绿色、等待选择橙色闪烁、异常红色；打开会话即视为已读，右键菜单可重新标记未读。',
+        'status.working': '正在工作',
+        'status.completed': '完成未读',
+        'status.attention': '等待选择',
+        'status.error': '异常',
+        'status.alpha': '背景浓度',
+        'menu.markUnread': '标记为未读',
       },
       en: {
         nav: 'Colour schemes',
@@ -883,6 +911,14 @@ window.__ModuleLoader__.load({
         'scope.brand.desc': 'The top-left brand row follows the palette ink too (surfaces already follow; off by default).',
         'scope.chrome.title': 'Rest of the interface',
         'scope.chrome.desc': 'Ink outside the conversation follows the palette too (surfaces already follow; off by default).',
+        'status.title': 'Session status colours',
+        'status.desc': 'Status backgrounds for session rows (independent of the palette): yellow sweep while working, green when finished unread, flashing orange when the session needs a choice, red on errors. Opening a session marks it read; the right-click menu can mark it unread again.',
+        'status.working': 'Working',
+        'status.completed': 'Finished unread',
+        'status.attention': 'Needs a choice',
+        'status.error': 'Error',
+        'status.alpha': 'Tint strength',
+        'menu.markUnread': 'Mark unread',
       },
     };
 
@@ -1088,6 +1124,271 @@ window.__ModuleLoader__.load({
           bump();
         }
 
+        /* ---------------------------------------------------------------- */
+        /* session status backgrounds (scheme independent)                   */
+        /* ---------------------------------------------------------------- */
+
+        const statusColors = readStatusColors();
+        let statusAlpha = readStatusAlpha();
+        const manualUnread = readUnreadSet();
+        const errorSessions = new Set();
+        let statusSnapshot = new Map();
+        let statusFrame = 0;
+
+        function readStatusColors() {
+          const colors = { ...DEFAULT_STATUS_COLORS };
+          try {
+            const raw = window.localStorage.getItem(STATUS_COLORS_KEY);
+            if (raw !== null) {
+              const parsed = JSON.parse(raw);
+              for (const key of Object.keys(colors)) {
+                if (typeof parsed[key] === 'string' && /^#[0-9a-f]{6}$/i.test(parsed[key])) colors[key] = parsed[key];
+              }
+            }
+          } catch (error) {
+            /* defaults */
+          }
+          return colors;
+        }
+
+        function writeStatusColors() {
+          try {
+            window.localStorage.setItem(STATUS_COLORS_KEY, JSON.stringify(statusColors));
+          } catch (error) {
+            /* private mode */
+          }
+        }
+
+        function readStatusAlpha() {
+          try {
+            const n = Number(window.localStorage.getItem(STATUS_ALPHA_KEY));
+            return Number.isFinite(n) && n > 0 ? Math.min(60, Math.max(8, n)) : 26;
+          } catch (error) {
+            return 26;
+          }
+        }
+
+        function writeStatusAlpha() {
+          try {
+            window.localStorage.setItem(STATUS_ALPHA_KEY, String(statusAlpha));
+          } catch (error) {
+            /* private mode */
+          }
+        }
+
+        function readUnreadSet() {
+          try {
+            const raw = window.localStorage.getItem(STATUS_UNREAD_KEY);
+            const list = JSON.parse(raw);
+            return new Set(Array.isArray(list) ? list.filter((id) => typeof id === 'string') : []);
+          } catch (error) {
+            return new Set();
+          }
+        }
+
+        function writeUnreadSet() {
+          try {
+            if (manualUnread.size > 0) window.localStorage.setItem(STATUS_UNREAD_KEY, JSON.stringify([...manualUnread]));
+            else window.localStorage.removeItem(STATUS_UNREAD_KEY);
+          } catch (error) {
+            /* private mode */
+          }
+        }
+
+        /** Compile the session-status stylesheet from the configured colours. */
+        function compileStatusSheet() {
+          const pct = statusAlpha;
+          const accentPct = Math.min(70, pct + 26);
+          const row = '[data-row-key^="session:"]';
+          return [
+            row + '[' + STATUS_STATE_ATTR + '="working"]{background-color:color-mix(in srgb, ' + statusColors.working + ' ' + pct + '%, transparent)!important;background-image:linear-gradient(90deg, transparent 0%, color-mix(in srgb, ' + statusColors.working + ' ' + accentPct + '%, transparent) 50%, transparent 100%);background-size:200% 100%;animation:dcs-status-sweep 1.8s linear infinite}',
+            row + '[' + STATUS_STATE_ATTR + '="completed"]{background-color:color-mix(in srgb, ' + statusColors.completed + ' ' + pct + '%, transparent)!important}',
+            row + '[' + STATUS_STATE_ATTR + '="attention"]{animation:dcs-status-blink 1.2s steps(2,end) infinite}',
+            row + '[' + STATUS_STATE_ATTR + '="error"]{background-color:color-mix(in srgb, ' + statusColors.error + ' ' + Math.min(70, pct + 4) + '%, transparent)!important}',
+            '@keyframes dcs-status-sweep{from{background-position:200% 0}to{background-position:-200% 0}}',
+            '@keyframes dcs-status-blink{0%,100%{background-color:color-mix(in srgb, ' + statusColors.attention + ' ' + accentPct + '%, transparent)}50%{background-color:transparent}}',
+          ].join('\n');
+        }
+
+        function refreshStatusSheet() {
+          ensureStyleNode(STATUS_NODE_ID).textContent = compileStatusSheet();
+        }
+
+        /** Resolve the visual state of one session id. */
+        function stateOf(id) {
+          if (errorSessions.has(id)) return 'error';
+          if (manualUnread.has(id)) return 'completed';
+          const status = statusSnapshot.get(id);
+          if (status !== undefined && status !== null) {
+            if (status.pendingInteraction !== undefined && status.pendingInteraction !== null) return 'attention';
+            if (status.running === true) return 'working';
+            if (status.completionUnread === true) return 'completed';
+          }
+          return null;
+        }
+
+        /** Paint every rendered session row with its state attribute. */
+        function applyStatuses() {
+          let rows;
+          try {
+            rows = document.querySelectorAll('[data-row-key^="session:"]');
+          } catch (error) {
+            return;
+          }
+          for (const row of rows) {
+            const key = row.getAttribute('data-row-key') ?? '';
+            const id = key.slice('session:'.length);
+            const state = stateOf(id);
+            if (state === null) {
+              if (row.hasAttribute(STATUS_STATE_ATTR)) row.removeAttribute(STATUS_STATE_ATTR);
+            } else if (row.getAttribute(STATUS_STATE_ATTR) !== state) {
+              row.setAttribute(STATUS_STATE_ATTR, state);
+            }
+          }
+        }
+
+        function scheduleStatuses() {
+          if (statusFrame !== 0) return;
+          const raf = window.requestAnimationFrame ?? ((cb) => setTimeout(cb, 16));
+          statusFrame = raf(() => {
+            statusFrame = 0;
+            applyStatuses();
+          });
+        }
+
+        /** Right-click menu action: greet the session as unread. */
+        function markUnread(id) {
+          if (typeof id !== 'string' || id === '') return;
+          errorSessions.delete(id);
+          manualUnread.add(id);
+          writeUnreadSet();
+          scheduleStatuses();
+          bump();
+        }
+
+        function markRead(id) {
+          const had = manualUnread.delete(id);
+          const hadError = errorSessions.delete(id);
+          if (had) writeUnreadSet();
+          if (had || hadError) {
+            scheduleStatuses();
+            bump();
+          }
+        }
+
+        /* uiSession publishes running / pending-interaction / completion-unread
+           facts; the rows themselves only carry data-row-key, so this layer
+           paints them. */
+        ctx.effect(() => {
+          let sessionStatus = null;
+          try {
+            const session = ctx.get('uiSession');
+            sessionStatus = session?.sessionStatus ?? null;
+          } catch (error) {
+            sessionStatus = null;
+          }
+          if (sessionStatus === null || sessionStatus === undefined) return () => {};
+          const publish = () => {
+            statusSnapshot = sessionStatus.getSnapshot();
+            scheduleStatuses();
+          };
+          publish();
+          const off = sessionStatus.subscribe(publish);
+          return () => {
+            try {
+              off();
+            } catch (error) {
+              /* already released */
+            }
+          };
+        }, 'color-style: session status subscription');
+
+        /* rows are re-rendered by the host; repaint after each render batch */
+        ctx.effect(() => {
+          let observer = null;
+          try {
+            observer = new window.MutationObserver(() => scheduleStatuses());
+            observer.observe(document.body, { childList: true, subtree: true });
+          } catch (error) {
+            observer = null;
+          }
+          return () => {
+            if (observer !== null) observer.disconnect();
+          };
+        }, 'color-style: session row observer');
+
+        /* opening a session marks it read; the row buttons keep their own clicks */
+        ctx.effect(() => {
+          const onClick = (event) => {
+            const target = event.target instanceof window.Element ? event.target : null;
+            if (target === null) return;
+            if (target.closest('button,[class*="_iconButton"],[class*="_rowActions"],[class*="_rowQuickActions"],[class*="_sessionOverflowButton"]')) return;
+            const row = target.closest('[data-row-key^="session:"]');
+            if (row === null) return;
+            markRead((row.getAttribute('data-row-key') ?? '').slice('session:'.length));
+          };
+          document.addEventListener('click', onClick, true);
+          return () => document.removeEventListener('click', onClick, true);
+        }, 'color-style: session read click');
+
+        /* transcript turn errors paint the owning session red */
+        ctx.effect(() => {
+          const scan = () => {
+            let errorRows;
+            try {
+              errorRows = document.querySelectorAll('[class*="_turnErrorRow"]');
+            } catch (error) {
+              return;
+            }
+            if (errorRows.length === 0) return;
+            for (const node of errorRows) {
+              const host = node.closest('[data-conversation-session]');
+              const id = host?.getAttribute('data-conversation-session') ?? '';
+              if (id !== '' && !errorSessions.has(id)) {
+                errorSessions.add(id);
+                scheduleStatuses();
+              }
+            }
+          };
+          scan();
+          let observer = null;
+          try {
+            observer = new window.MutationObserver(scan);
+            observer.observe(document.body, { childList: true, subtree: true });
+          } catch (error) {
+            observer = null;
+          }
+          return () => {
+            if (observer !== null) observer.disconnect();
+          };
+        }, 'color-style: turn error observer');
+
+        /* right-click menu: mark a session unread */
+        ctx.effect(() => {
+          const menus = (() => {
+            try {
+              return ctx.get('contextMenus');
+            } catch (error) {
+              return null;
+            }
+          })();
+          if (menus === null || menus === undefined) return () => {};
+          return menus.register({
+            id: 'color-style.mark-unread',
+            target: 'session',
+            order: 550,
+            resolve: () => [
+              {
+                id: 'mark-unread',
+                label: locale.bind(LOCALE_NS)('menu.markUnread'),
+                run: (item) => {
+                  markUnread(item?.sessionId);
+                },
+              },
+            ],
+          });
+        }, 'color-style: session menu item');
+
         /* The palette owns the Appearance mode. When the preference moves away
            from the active palette (a durable-settings echo, a rejected write,
            a reload), reassert it instead of losing the scheme; a bounded
@@ -1114,7 +1415,7 @@ window.__ModuleLoader__.load({
         ctx.effect(
           () => () => {
             dropPalette();
-            for (const id of [STYLE_NODE_ID, UI_STYLE_NODE_ID]) {
+            for (const id of [STYLE_NODE_ID, UI_STYLE_NODE_ID, STATUS_NODE_ID]) {
               const node = document.getElementById(id);
               if (node !== null) node.remove();
             }
@@ -1123,6 +1424,8 @@ window.__ModuleLoader__.load({
         );
 
         ensureStyleNode(UI_STYLE_NODE_ID).textContent = UI_STYLE_TEXT;
+        refreshStatusSheet();
+        scheduleStatuses();
 
         migrateLegacyStorage();
         const stored = readStored();
@@ -1180,6 +1483,24 @@ window.__ModuleLoader__.load({
               },
               h('span', { className: 'dcs-knob' }),
             ),
+          );
+        }
+
+        /** One colour picker row for a session state. */
+        function StatusColorRow({ label, value, onPick }) {
+          return h(
+            'label',
+            { className: 'dcs-colorrow' },
+            h('span', { className: 'dcs-colorlabel' }, label),
+            h('input', {
+              type: 'color',
+              className: 'dcs-color',
+              value,
+              'aria-label': label,
+              onInput: (event) => onPick(event.target.value, false),
+              onChange: (event) => onPick(event.target.value, true),
+            }),
+            h('span', { className: 'dcs-colorvalue' }, value),
           );
         }
 
@@ -1279,6 +1600,80 @@ window.__ModuleLoader__.load({
                 on: chromeScope,
                 onToggle: () => toggleScope('chrome'),
               }),
+            ),
+            h(
+              'div',
+              { className: 'dcs-status-head' },
+              h('div', { className: 'dcs-status-title' }, t('status.title')),
+              h('div', { className: 'dcs-status-desc' }, t('status.desc')),
+            ),
+            h(
+              'div',
+              { className: 'dcs-colors' },
+              h(StatusColorRow, {
+                key: 'working',
+                label: t('status.working'),
+                value: statusColors.working,
+                onPick: (value, finish) => {
+                  statusColors.working = value;
+                  writeStatusColors();
+                  refreshStatusSheet();
+                  if (finish) bump();
+                },
+              }),
+              h(StatusColorRow, {
+                key: 'completed',
+                label: t('status.completed'),
+                value: statusColors.completed,
+                onPick: (value, finish) => {
+                  statusColors.completed = value;
+                  writeStatusColors();
+                  refreshStatusSheet();
+                  if (finish) bump();
+                },
+              }),
+              h(StatusColorRow, {
+                key: 'attention',
+                label: t('status.attention'),
+                value: statusColors.attention,
+                onPick: (value, finish) => {
+                  statusColors.attention = value;
+                  writeStatusColors();
+                  refreshStatusSheet();
+                  if (finish) bump();
+                },
+              }),
+              h(StatusColorRow, {
+                key: 'error',
+                label: t('status.error'),
+                value: statusColors.error,
+                onPick: (value, finish) => {
+                  statusColors.error = value;
+                  writeStatusColors();
+                  refreshStatusSheet();
+                  if (finish) bump();
+                },
+              }),
+              h(
+                'label',
+                { className: 'dcs-colorrow' },
+                h('span', { className: 'dcs-colorlabel' }, t('status.alpha')),
+                h('input', {
+                  type: 'range',
+                  className: 'dcs-alpha',
+                  min: 8,
+                  max: 60,
+                  step: 2,
+                  value: statusAlpha,
+                  onChange: (event) => {
+                    statusAlpha = Number(event.target.value);
+                    writeStatusAlpha();
+                    refreshStatusSheet();
+                    bump();
+                  },
+                }),
+                h('span', { className: 'dcs-colorvalue' }, statusAlpha + '%'),
+              ),
             ),
             selected === null
               ? null

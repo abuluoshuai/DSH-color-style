@@ -10,7 +10,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="license" />
-  <img src="https://img.shields.io/badge/version-0.3.3-informational.svg" alt="version" />
+  <img src="https://img.shields.io/badge/version-0.4.0-informational.svg" alt="version" />
   <img src="https://img.shields.io/badge/DSH-0.2.2--rc.1%2B-4d6bfe" alt="DSH" />
 </p>
 
@@ -25,6 +25,13 @@
   - 「品牌标识区域」—— 左上角 DeepSeek Harness 标识行（`[class*="_logoRow"]`）的墨水跟随方案的标题色（H1）：整行铺方案侧栏底色，子树与内层钩子（`_brandIdentity`/`_brandMark`/`_brandName`）钉色（鲸鱼标与字标均为 currentColor）。
   - 「其余界面区域」—— 对话区以外界面的墨水跟随方案：墨水令牌组经 `overrideTokens` 折叠为第二层，并在 `body`/`#root` 做样式表级兜底，同时钉色宿主硬编码颜色的侧栏行、搜索框、页脚与输入框内部元素。
 
+- **会话状态背景（通用，与配色方案无关）** —— 工作区里的会话行按状态染色：
+  - **正在工作**：黄色底 + 移动高光扫光（类似 Win11 进度条），数据来自 `uiSession.sessionStatus`（`running`）；
+  - **完成未读**：绿色底（`completionUnread`，宿主在打开会话时自动清除）；
+  - **等待选择**：橙色闪烁（`pendingInteraction` = approval / plan-review / question）；
+  - **异常**：红色底——对话区出现 `turnErrorRow`（回合失败，如模型连接失败、token 耗尽）时标记该会话，打开会话即视为已读；
+  - **已读无底色**；右键菜单「标记为未读」可重新变绿。行标记通过 `[data-row-key^="session:"]` + `data-dcs-state` 属性驱动，不依赖宿主内部结构。
+  - 四种状态色与背景浓度可在设置页用调色盘调整（`dsh.color-style.status.colors` / `.alpha` / `.unread`）。
 - **设置页独立的「配色方案」页** —— 以 `settings.section` 贡献注册，在设置导航里有自己的入口和图标；页内以卡片预览（背景 + 标题色 + 强调色点 + 代码底色）展示十种方案：双列排布，左列五个浅色、右列按色系对应的五个深色（纸卷↔余烬、樱雪↔德古拉、冰原↔午夜、草甸↔幽林、暮光↔深渊），点击即换；页面下方是两个作用域开关与「恢复默认外观」。
 
 ## 作用域开关
