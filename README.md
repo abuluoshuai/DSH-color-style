@@ -10,8 +10,9 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="license" />
-  <img src="https://img.shields.io/badge/version-0.4.2-informational.svg" alt="version" />
+  <img src="https://img.shields.io/badge/version-0.5.0-informational.svg" alt="version" />
   <img src="https://img.shields.io/badge/DSH-0.2.2--rc.1%2B-4d6bfe" alt="DSH" />
+  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/changelog-view-informational.svg" alt="changelog" /></a>
 </p>
 
 ## 功能
@@ -108,6 +109,7 @@ dsh plugin --profile web add dsh-color-style
 如果外观被外部改走，插件会把模式拉回方案自身的明暗（上限 5 次，防止 Host 拒绝写入时打转）；
 「恢复默认外观」会彻底退出方案层。
 两个作用域开关同理持久化（默认关闭，控制墨水而非背景），切换时会即时重算令牌层与样式表。
+会话状态的设置与手工未读标记同样存 `localStorage`：`dsh.color-style.status.colors`（四色）、`.alpha`（浓度）、`.speed`（扫光周期）、`.unread`（手工未读集合）。
 
 ## 开发
 
@@ -116,8 +118,12 @@ npm run check   # 语法检查（node --check）
 npm test        # 冒烟测试（stub 掉 window/document 与 theme/slots/locale 服务）
 ```
 
-测试覆盖：启动即应用已选方案、令牌层与兜底样式表内容、旧 tinta 记录迁移、外观被外部翻转后的「粘性」拉回、
-重置后的完全退出、设置页十张卡片渲染与点击选方案。
+测试覆盖（9 项，`node --test`）：启动即应用已选方案、令牌层与兜底样式表内容、旧 tinta 记录迁移、外观被外部翻转后的「粘性」拉回、重置后的完全退出、设置页十张卡片渲染与点击选方案、双列顺序、作用域开关、会话状态样式表与右键菜单注册。
+另有一套 jsdom + 真实 React 的集成验证（会话行状态标记、右键菜单无参激活、点击已读、异常检测）。
+
+## 更新记录
+
+各版本变更见 [CHANGELOG.md](CHANGELOG.md)。
 
 ## 来源与致谢
 
