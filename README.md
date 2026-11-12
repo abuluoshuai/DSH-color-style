@@ -1,6 +1,18 @@
-# DSH-color-style
+<div align="center">
+  <img src="icon/scher.png" alt="Scher" width="120" height="120" />
+</div>
 
-为 DeepSeek Harness（DSH）Web GUI 提供的配色方案插件：把 Markdown 阅读器 [Tinta](https://github.com/oipoistar/tinta) 的十种阅读配色完整搬进主窗口。
+<h1 align="center">DSH-color-style</h1>
+
+<p align="center"><i>Colours, distilled.</i></p>
+
+<p align="center">把 <a href="https://github.com/oipoistar/tinta">Tinta</a> Markdown 阅读器的十种阅读配色完整搬进 DeepSeek Harness —— 所有背景与对话区默认跟随，另有两个开关把墨水扩展到品牌标识与其余界面。</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="license" />
+  <img src="https://img.shields.io/badge/version-0.3.1-informational.svg" alt="version" />
+  <img src="https://img.shields.io/badge/DSH-0.2.2--rc.1%2B-4d6bfe" alt="DSH" />
+</p>
 
 ## 功能
 
@@ -9,7 +21,7 @@
 - **所有背景色默认跟随方案** —— 表面组经 `overrideTokens` 全局生效，并在 `html/body`（`!important`）与 `#root` 做样式表级兜底：窗口画布、侧栏、输入框、菜单、弹层、气泡、代码块、diff 底色等全部跟随，不再分区域。
 - **中间对话区（含文字）默认跟随方案** —— 完整令牌集重新声明在对话区根节点（`[data-conversation-content]`）上：Markdown 容器、标题、链接、行内代码、引用块、Shiki 语法高亮、气泡、思考行、会话头部面包屑与页签（对宿主硬编码颜色的行做 `!important` 钉色）。
 - **两个作用域开关（默认关闭），控制的是墨水（文字与图标）**：
-  - 「品牌标识区域」—— 左上角 DeepSeek Harness 标识行（`[class$="_logoRow"]`）的墨水跟随方案：整行铺方案侧栏底色，子树钉色（鲸鱼标与字标均为 currentColor）。
+  - 「品牌标识区域」—— 左上角 DeepSeek Harness 标识行（`[class*="_logoRow"]`）的墨水跟随方案的标题色（H1）：整行铺方案侧栏底色，子树与内层钩子（`_brandIdentity`/`_brandMark`/`_brandName`）钉色（鲸鱼标与字标均为 currentColor）。
   - 「其余界面区域」—— 对话区以外界面的墨水跟随方案：墨水令牌组经 `overrideTokens` 折叠为第二层，并在 `body`/`#root` 做样式表级兜底，同时钉色宿主硬编码颜色的侧栏行、搜索框、页脚与输入框内部元素。
 
 - **设置页独立的「配色方案」页** —— 以 `settings.section` 贡献注册，在设置导航里有自己的入口和图标；页内以卡片预览（背景 + 标题色 + 强调色点 + 代码底色）展示十种方案：双列排布，左列五个浅色、右列按色系对应的五个深色（纸卷↔余烬、樱雪↔德古拉、冰原↔午夜、草甸↔幽林、暮光↔深渊），点击即换；页面下方是两个作用域开关与「恢复默认外观」。
@@ -18,7 +30,7 @@
 
 | 开关 | 默认 | 控制内容 | 实现 |
 | --- | --- | --- | --- |
-| 品牌标识区域 | 关 | 左上角标识行的**文字与图标** | 令牌集重声明到 `[class$="_logoRow"]` + 侧栏底色 + 子树 `color:inherit!important` 钉色 |
+| 品牌标识区域 | 关 | 左上角标识行的**文字与图标跟随标题色（H1）** | 令牌集重声明到 `[class*="_logoRow"]` + 侧栏底色 + 子树 `color:inherit!important` 钉色 |
 | 其余界面区域 | 关 | 对话区以外界面的**文字与图标** | 墨水令牌组经 `overrideTokens` 折叠为第二层 + `body`/`#root` 样式表兜底 + 侧栏/输入框钉色 |
 
 背景不受开关影响——默认全部跟随。开关状态存 `localStorage` + cookie 镜像（`dsh.color-style.scope.brand` / `dsh.color-style.scope.chrome`），跨端口重开仍保留。

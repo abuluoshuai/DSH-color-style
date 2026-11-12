@@ -43,7 +43,8 @@
     "locale/*.json",
     "docs/settings-page.png",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "icon"
   ],
   "dsh": {
     "manifestVersion": 1,
