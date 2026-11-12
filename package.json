@@ -44,7 +44,8 @@
     "docs/settings-page.png",
     "README.md",
     "LICENSE",
-    "icon"
+    "icon",
+    "CHANGELOG.md"
   ],
   "dsh": {
     "manifestVersion": 1,
