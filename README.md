@@ -32,7 +32,7 @@
   - **等待选择**：橙色闪烁（`pendingInteraction` = approval / plan-review / question）；
   - **异常**：红色底——对话区出现 `turnErrorRow`（回合失败，如模型连接失败、token 耗尽）时标记该会话，打开会话即视为已读；
   - **已读无底色**；右键菜单「标记为未读」可重新变绿。行标记通过 `[data-row-key^="session:"]` + `data-dcs-state` 属性驱动，不依赖宿主内部结构。
-  - 四种状态色与背景浓度可在设置页用调色盘调整（`dsh.color-style.status.colors` / `.alpha` / `.unread`）。
+  - 四种状态色、背景浓度与扫光速度可在设置页调整（`dsh.color-style.status.colors` / `.alpha` / `.speed` / `.unread`）。
 - **设置页独立的「配色方案」页** —— 以 `settings.section` 贡献注册，在设置导航里有自己的入口和图标；页内以卡片预览（背景 + 标题色 + 强调色点 + 代码底色）展示十种方案：双列排布，左列五个浅色、右列按色系对应的五个深色（纸卷↔余烬、樱雪↔德古拉、冰原↔午夜、草甸↔幽林、暮光↔深渊），点击即换；页面下方是两个作用域开关与「恢复默认外观」。
 
 ## 作用域开关
