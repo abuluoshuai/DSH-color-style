@@ -1,7 +1,7 @@
 {
   "name": "dsh-color-style",
-  "version": "0.6.0",
-  "description": "Ten Markdown-reader colour schemes for DeepSeek Harness: full-window background, Markdown typography, a dedicated Settings page, and a taskbar flash when a Session turn finishes while the window is out of focus.",
+  "version": "0.7.0",
+  "description": "Ten Markdown-reader colour schemes for DeepSeek Harness: full-window background, Markdown typography, a dedicated Settings page, custom colours for the historical user-message bubbles, and a taskbar flash when a Session turn finishes while the window is out of focus.",
   "type": "module",
   "license": "MIT",
   "author": "abuluoshuai",

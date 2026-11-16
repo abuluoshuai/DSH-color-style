@@ -47,6 +47,8 @@ window.__ModuleLoader__.load({
     const STATUS_ALPHA_KEY = 'dsh.color-style.status.alpha';
     const STATUS_SPEED_KEY = 'dsh.color-style.status.speed';
     const STATUS_STATE_ATTR = 'data-dcs-state';
+    const USER_MESSAGE_COLORS_KEY = 'dsh.color-style.userMessages.v1';
+    const USER_MESSAGE_STYLE_NODE_ID = 'dsh-color-style-user-messages';
     const DEFAULT_STATUS_COLORS = {
       working: '#f5c542',
       completed: '#4ade80',
@@ -837,6 +839,11 @@ window.__ModuleLoader__.load({
       '.dcs-colorlabel{font-size:12px;line-height:18px;color:var(--dsw-alias-label-primary);min-width:96px}',
       '.dcs-color{width:34px;height:22px;padding:0;border:.5px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-xs);background:0 0;cursor:pointer}',
       '.dcs-colorvalue{font-size:11px;color:var(--dsw-alias-label-tertiary);font-family:var(--ds-font-family-code)}',
+      '.dcs-hex{width:92px;box-sizing:border-box;padding:2px 6px;border:.5px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-xs);background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);font:inherit;font-size:11px;line-height:16px;font-family:var(--ds-font-family-code);text-transform:lowercase}',
+      '.dcs-hex:focus{outline:none;border-color:var(--dsw-alias-brand-primary)}',
+      '.dcs-follow{margin-left:auto;border:0;background:0 0;padding:2px 0;color:var(--dsw-alias-link);font:inherit;font-size:12px;line-height:18px;cursor:pointer}',
+      '.dcs-follow:hover{text-decoration:underline}',
+      '.dcs-follow:disabled{color:var(--dsw-alias-label-tertiary);cursor:default;text-decoration:none}',
       '.dcs-alpha{flex:1;max-width:180px}',
       '.dcs-reset{align-self:flex-start;border:0;background:0 0;padding:2px 0;color:var(--dsw-alias-link);font:inherit;font-size:12px;line-height:18px;cursor:pointer}',
       '.dcs-reset:hover{text-decoration:underline}',
@@ -890,6 +897,11 @@ window.__ModuleLoader__.load({
         'status.alpha': '背景浓度',
         'status.speed': '扫光速度',
         'menu.markUnread': '标记为未读',
+        'userMessage.title': '用户消息区域',
+        'userMessage.desc': '对话里显示你历史输入的用户消息气泡：可以单独指定它的文字颜色与背景色；点「跟随主题」恢复为跟随当前配色方案（默认）。',
+        'userMessage.bg': '背景色',
+        'userMessage.text': '文字颜色',
+        'userMessage.follow': '跟随主题',
       },
       en: {
         nav: 'Colour schemes',
@@ -922,6 +934,11 @@ window.__ModuleLoader__.load({
         'status.alpha': 'Tint strength',
         'status.speed': 'Sweep speed',
         'menu.markUnread': 'Mark unread',
+        'userMessage.title': 'User messages',
+        'userMessage.desc': 'The bubbles that show your earlier inputs in the transcript: give them their own text colour and background; "Follow theme" falls back to the active palette (default).',
+        'userMessage.bg': 'Background',
+        'userMessage.text': 'Text colour',
+        'userMessage.follow': 'Follow theme',
       },
     };
 
@@ -1134,6 +1151,7 @@ window.__ModuleLoader__.load({
         const statusColors = readStatusColors();
         let statusAlpha = readStatusAlpha();
         let statusSpeed = readStatusSpeed();
+        const userMessageColors = readUserMessageColors();
         const manualUnread = readUnreadSet();
         const errorSessions = new Set();
         let statusSnapshot = new Map();
@@ -1195,6 +1213,64 @@ window.__ModuleLoader__.load({
           } catch (error) {
             /* private mode */
           }
+        }
+
+        /* ---- user message bubbles (historical user input) ---- */
+
+        const HEX_COLOR = /^#[0-9a-f]{6}$/i;
+
+        function normalizeColor(value) {
+          const text = String(value == null ? '' : value).trim().toLowerCase().replace(/^#/, '');
+          if (/^[0-9a-f]{6}$/.test(text)) return '#' + text;
+          if (/^[0-9a-f]{3}$/.test(text)) {
+            return '#' + text[0] + text[0] + text[1] + text[1] + text[2] + text[2];
+          }
+          return '';
+        }
+
+        function readUserMessageColors() {
+          try {
+            const raw = window.localStorage.getItem(USER_MESSAGE_COLORS_KEY);
+            if (raw === null) return { text: '', bg: '' };
+            const parsed = JSON.parse(raw);
+            return {
+              text: normalizeColor(parsed && parsed.text),
+              bg: normalizeColor(parsed && parsed.bg),
+            };
+          } catch (error) {
+            return { text: '', bg: '' };
+          }
+        }
+
+        function writeUserMessageColors(colors) {
+          try {
+            window.localStorage.setItem(
+              USER_MESSAGE_COLORS_KEY,
+              JSON.stringify({ text: colors.text, bg: colors.bg }),
+            );
+          } catch (error) {
+            /* private mode: the value still applies until reload */
+          }
+        }
+
+        /**
+         * Paint the user's own colours onto the user-message bubbles in the
+         * transcript. The host renders each earlier user input through
+         * `UserMessageBubble`, which carries `data-message-bubble`; one
+         * authoritative rule on that attribute wins without touching host DOM.
+         */
+        function compileUserMessageSheet(colors) {
+          const bubble = '[data-message-bubble]';
+          const rules = [];
+          if (colors.bg !== '') rules.push(bubble + '{background:' + colors.bg + ' !important}');
+          if (colors.text !== '') {
+            rules.push(bubble + ',' + bubble + ' *{color:' + colors.text + ' !important}');
+          }
+          return rules.join('\n');
+        }
+
+        function refreshUserMessageSheet() {
+          ensureStyleNode(USER_MESSAGE_STYLE_NODE_ID).textContent = compileUserMessageSheet(userMessageColors);
         }
 
         function readUnreadSet() {
@@ -1436,7 +1512,7 @@ window.__ModuleLoader__.load({
         ctx.effect(
           () => () => {
             dropPalette();
-            for (const id of [STYLE_NODE_ID, UI_STYLE_NODE_ID, STATUS_NODE_ID]) {
+            for (const id of [STYLE_NODE_ID, UI_STYLE_NODE_ID, STATUS_NODE_ID, USER_MESSAGE_STYLE_NODE_ID]) {
               const node = document.getElementById(id);
               if (node !== null) node.remove();
             }
@@ -1446,6 +1522,7 @@ window.__ModuleLoader__.load({
 
         ensureStyleNode(UI_STYLE_NODE_ID).textContent = UI_STYLE_TEXT;
         refreshStatusSheet();
+        refreshUserMessageSheet();
         scheduleStatuses();
 
         migrateLegacyStorage();
@@ -1525,6 +1602,66 @@ window.__ModuleLoader__.load({
           );
         }
 
+        /** One free colour row for the user message bubbles (background / text). */
+        function UserMessageColorRow({ label, value, fallback, followLabel, onPick, onFollow }) {
+          const following = value === '';
+          const effective = following ? fallback : value;
+          /* Local draft so a half-typed value like "#86" survives until it is a
+             complete hex colour; the applied value still drives the swatch. */
+          const [draft, setDraft] = React.useState(effective);
+          React.useEffect(() => {
+            setDraft(effective);
+          }, [effective]);
+          const commit = (next) => {
+            const normalized = normalizeColor(next);
+            if (normalized !== '') onPick(normalized, true);
+          };
+          return h(
+            'div',
+            { className: 'dcs-colorrow' },
+            h('span', { className: 'dcs-colorlabel' }, label),
+            h('input', {
+              type: 'color',
+              className: 'dcs-color',
+              value: effective,
+              'aria-label': label,
+              onInput: (event) => onPick(event.target.value, false),
+              onChange: (event) => onPick(event.target.value, true),
+            }),
+            h('input', {
+              type: 'text',
+              className: 'dcs-hex',
+              value: draft,
+              spellCheck: false,
+              autoComplete: 'off',
+              placeholder: '#rrggbb',
+              'aria-label': label + ' HEX',
+              onChange: (event) => {
+                const next = event.target.value;
+                setDraft(next);
+                commit(next);
+              },
+              onBlur: () => setDraft(effective),
+              onKeyDown: (event) => {
+                if (event.key !== 'Enter') return;
+                event.preventDefault();
+                commit(event.currentTarget.value);
+                event.currentTarget.blur();
+              },
+            }),
+            h(
+              'button',
+              {
+                type: 'button',
+                className: 'dcs-follow',
+                disabled: following,
+                onClick: () => onFollow(),
+              },
+              followLabel,
+            ),
+          );
+        }
+
         function ColorStylePage() {
           const [, force] = React.useState(0);
           React.useEffect(() => {
@@ -1539,6 +1676,7 @@ window.__ModuleLoader__.load({
 
           const t = locale.bind(LOCALE_NS);
           const selected = activeId;
+          const selectedPalette = selected === null ? null : paletteById(selected);
 
           return h(
             'div',
@@ -1715,6 +1853,54 @@ window.__ModuleLoader__.load({
                 }),
                 h('span', { className: 'dcs-colorvalue' }, statusSpeed + 's'),
               ),
+            ),
+            h(
+              'div',
+              { className: 'dcs-status-head' },
+              h('div', { className: 'dcs-status-title' }, t('userMessage.title')),
+              h('div', { className: 'dcs-status-desc' }, t('userMessage.desc')),
+            ),
+            h(
+              'div',
+              { className: 'dcs-colors' },
+              h(UserMessageColorRow, {
+                key: 'bg',
+                label: t('userMessage.bg'),
+                value: userMessageColors.bg,
+                fallback: (selectedPalette && selectedPalette.bg) || '#ffffff',
+                followLabel: t('userMessage.follow'),
+                onPick: (value, finish) => {
+                  userMessageColors.bg = normalizeColor(value);
+                  writeUserMessageColors(userMessageColors);
+                  refreshUserMessageSheet();
+                  if (finish) bump();
+                },
+                onFollow: () => {
+                  userMessageColors.bg = '';
+                  writeUserMessageColors(userMessageColors);
+                  refreshUserMessageSheet();
+                  bump();
+                },
+              }),
+              h(UserMessageColorRow, {
+                key: 'text',
+                label: t('userMessage.text'),
+                value: userMessageColors.text,
+                fallback: (selectedPalette && selectedPalette.text) || '#000000',
+                followLabel: t('userMessage.follow'),
+                onPick: (value, finish) => {
+                  userMessageColors.text = normalizeColor(value);
+                  writeUserMessageColors(userMessageColors);
+                  refreshUserMessageSheet();
+                  if (finish) bump();
+                },
+                onFollow: () => {
+                  userMessageColors.text = '';
+                  writeUserMessageColors(userMessageColors);
+                  refreshUserMessageSheet();
+                  bump();
+                },
+              }),
             ),
             selected === null
               ? null

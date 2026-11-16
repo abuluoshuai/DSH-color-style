@@ -72,6 +72,20 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "<插件目录>\scripts\flas
 
 限制：仅 Windows（macOS 对应 Dock 弹跳，未实现）；依赖系统自带 PowerShell；窗口隐藏到托盘时
 没有任务栏按钮可闪；Windows 设置里关掉「任务栏闪烁」时系统会忽略请求。
+## 用户消息区域（自定义颜色）
+
+对话里显示你历史输入的用户消息气泡，颜色可以单独指定，不受配色方案限制：
+
+- **背景色**：气泡卡片的背景；
+- **文字颜色**：气泡里的文字（含其中的行内元素）。
+
+设置 → 配色方案 → 页面底部「用户消息区域」：点色块用取色器选，或者直接在旁边的
+十六进制输入框里粘贴 `#rrggbb`（也接受省略 # 与三位简写）——两者即时同步；点「跟随主题」
+恢复成跟随当前配色方案（默认）。颜色保存在本机浏览器 `localStorage`（`dsh.color-style.userMessages.v1`）。
+
+实现：插件维护一张独立的自有样式表，规则落在宿主渲染用户消息用的气泡元素
+（`[data-message-bubble]`）上；没有改动宿主的 DOM 结构，也不影响输入框与助手消息。
+
 ## 作用域开关
 
 | 开关 | 默认 | 控制内容 | 实现 |
@@ -80,6 +94,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "<插件目录>\scripts\flas
 | 其余界面区域 | 关 | 对话区以外界面的**文字与图标** | 墨水令牌组经 `overrideTokens` 折叠为第二层 + `body`/`#root` 样式表兜底 + 侧栏/输入框钉色 |
 
 背景不受开关影响——默认全部跟随。开关状态存 `localStorage` + cookie 镜像（`dsh.color-style.scope.brand` / `dsh.color-style.scope.chrome`），跨端口重开仍保留。
+- **用户消息区域**：对话中历史用户消息气泡的文字颜色与背景色可以单独自定义（设置页底部），默认跟随方案。
+
 ## 界面预览
 
 设置 → 配色方案 页：十个方案以固定双列排布，左列为五个浅色方案，右列为按色系一一对应的五个深色方案。
