@@ -8,9 +8,10 @@
 # stylesheet and the stored selection live in the Client half (`client.js`).
 #
 # The Host half owns one thing — the Windows taskbar flash shown when a root
-# Session finishes a turn while the DSH window is not focused. Its options live
-# under `config.taskbarFlash` (config is replaced wholesale, so an override
-# restates the keys it needs):
+# Session finishes a turn, asks a tool approval, or asks a structured user
+# question while the DSH window is not focused. Its options live under
+# `config.taskbarFlash` (config is replaced wholesale, so an override restates
+# the keys it needs):
 #
 #   - id: color-style
 #     config:
@@ -18,6 +19,7 @@
 #         enabled: true
 #         ignoreSubagents: true
 #         onlyWhenUnfocused: true
+#         onInteraction: true
 #         flashCount: 0
 #         cooldownMs: 1500
 #         processName: DeepSeek Harness

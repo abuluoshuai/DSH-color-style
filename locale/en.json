@@ -1,6 +1,6 @@
 {
   "meta": {
     "title": "Colour Schemes",
-    "description": "Ten reading palettes from a Markdown reader: the whole window background, the rendered Markdown and the sidebar rail follow the selected scheme, appearance follows the palette, the historical user-message bubbles can carry their own text and background colour, and a Session turn finishing out of focus flashes the Windows taskbar icon."
+    "description": "Ten reading palettes from a Markdown reader: the whole window background, the rendered Markdown and the sidebar rail follow the selected scheme, appearance follows the palette, the historical user-message bubbles can carry their own text and background colour, and a Windows taskbar flash fires when a Session finishes a turn or needs the user (tool approval / structured question) while the window is out of focus."
   }
 }

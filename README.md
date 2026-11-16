@@ -35,11 +35,19 @@
   - 四种状态色、背景浓度与扫光速度可在设置页调整（`dsh.color-style.status.colors` / `.alpha` / `.speed` / `.unread`）。
 - **设置页独立的「配色方案」页** —— 以 `settings.section` 贡献注册，在设置导航里有自己的入口和图标；页内以卡片预览（背景 + 标题色 + 强调色点 + 代码底色）展示十种方案：双列排布，左列五个浅色、右列按色系对应的五个深色（纸卷↔余烬、樱雪↔德古拉、冰原↔午夜、草甸↔幽林、暮光↔深渊），点击即换；页面下方是两个作用域开关与「恢复默认外观」。
 
-## 完成时闪烁任务栏（Windows）
+## 完成 / 需要交互时闪烁任务栏（Windows）
 
-除了配色，Host 半边还负责一件事：**根会话跑完一轮、而 DSH 桌面窗口不在前台时，闪烁 Windows
-任务栏上的 DSH 图标**，提醒你回来查看。你正看着窗口（在前台）时不闪，子代理的完成默认忽略，
-冷却窗口内的多次完成合并成一次。窗口一旦被激活，闪烁停止。
+除了配色，Host 半边还负责一件事：**根会话跑完一轮，或者需要你处理（工具审批、结构化提问）
+而 DSH 桌面窗口不在前台时，闪烁 Windows 任务栏上的 DSH 图标**，提醒你回来查看。你正看着窗口
+（在前台）时不闪，子代理的事件默认忽略，冷却窗口内的多次事件合并成一次。窗口一旦被激活，
+闪烁停止。
+
+需要用户交互的触发点有两个：
+
+- **工具审批**（`approval/request`）：某次工具调用在等你点允许 / 拒绝；
+- **结构化提问**（`user-questions/request`）：`ask_user_question` 这类选择或输入提示。
+
+两者都只「观察」事件，不会替用户作答；一次提问里的多个问题用 250ms 防抖合并成一次闪烁。
 
 实现上不碰 DSH 安装目录：Host 进程是桌面主进程的直接子进程，插件按 `process.ppid` 找到拥有
 任务栏按钮的那个窗口，用随包的 `scripts/flash-window.ps1` 调 Win32 `FlashWindowEx`
@@ -55,6 +63,7 @@
       enabled: true            # 总开关
       ignoreSubagents: true    # 忽略子代理会话的完成
       onlyWhenUnfocused: true  # 窗口在前台时不闪（只写日志）
+      onInteraction: true      # 需要用户交互（审批 / 提问）时也闪
       flashCount: 0            # 0 = 一直闪到窗口被激活；1..99 = 闪固定次数
       cooldownMs: 1500         # 合并连续完成事件的窗口
       processName: DeepSeek Harness
@@ -62,7 +71,8 @@
       log: true                # 写 $DSH_HOME/taskbar-flash/attention.log
 ```
 
-排查：日志每次完成记一行 `completion detected`，下一行是 `flash …` 或 `skip …`
+排查：日志每次触发记一行 `attention detected`（审批/提问触发时会先记 `approval request detected`
+或 `question request detected`），下一行是 `flash …` 或 `skip …`
 （`reason: no-window` 表示 Host 不是由桌面应用启动的）。手动试闪（不经过会话事件）：
 
 ```powershell

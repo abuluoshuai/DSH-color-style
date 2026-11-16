@@ -29,6 +29,18 @@ function createCtx({ rootId = 'root', throwOnRootOf = false } = {}) {
     emit(name, payload) {
       for (const fn of [...(listeners.get(name) ?? [])]) fn(payload)
     },
+    /** Run a waterfall event the way the Host composes it. */
+    async emitWaterfall(name, payload) {
+      const list = [...(listeners.get(name) ?? [])]
+      let index = 0
+      const dispatch = () => {
+        const fn = list[index]
+        index += 1
+        if (fn === undefined) return Promise.resolve('composed-answer')
+        return Promise.resolve(fn(payload, dispatch))
+      }
+      return dispatch()
+    },
     listenerCount(name) {
       return (listeners.get(name) ?? []).length
     },
@@ -55,6 +67,7 @@ function mount(overrides = {}, deps = {}) {
         onResult?.({ ok: true, action: 'flash' })
       },
       writeLog: (line) => logs.push(line),
+      interactionDelayMs: 0,
       ...deps,
     },
   )
@@ -92,7 +105,7 @@ test('a finished root turn flashes once', async () => {
   await sleep(15)
   assert.equal(flashes.length, 1)
   assert.equal(flashes[0].parentPid, 4242)
-  assert.ok(logs.some((line) => line.startsWith('completion detected')))
+  assert.ok(logs.some((line) => line.startsWith('attention detected')))
   assert.ok(logs.some((line) => line.includes('"action":"flash"')))
 })
 
@@ -166,4 +179,59 @@ test('disabled and non-Windows installs stay inert', async () => {
   await sleep(15)
   assert.equal(flashes.length, 0)
   assert.ok(logs.some((line) => line.includes('unsupported platform')))
+})
+
+test('a user question request flashes once and keeps the waterfall answer', async () => {
+  const { ctx, flashes, logs } = mount({ cooldownMs: 0 })
+  const answer = await ctx.emitWaterfall('user-questions/request', { agent: { id: 'root' }, questions: [] })
+  await sleep(15)
+  assert.equal(answer, 'composed-answer')
+  assert.equal(flashes.length, 1)
+  assert.ok(logs.some((line) => line.includes('question request detected')))
+})
+
+test('an approval request flashes once', async () => {
+  const { ctx, flashes, logs } = mount({ cooldownMs: 0 })
+  const answer = await ctx.emitWaterfall('approval/request', { agent: { id: 'root' }, callId: 'call-1' })
+  await sleep(15)
+  assert.equal(answer, 'composed-answer')
+  assert.equal(flashes.length, 1)
+  assert.ok(logs.some((line) => line.includes('attention detected')))
+})
+
+test('onInteraction false keeps prompts silent', async () => {
+  const { ctx, flashes } = mount({ cooldownMs: 0, onInteraction: false })
+  await ctx.emitWaterfall('user-questions/request', { agent: { id: 'root' } })
+  await ctx.emitWaterfall('approval/request', { agent: { id: 'root' } })
+  await sleep(15)
+  assert.equal(flashes.length, 0)
+})
+
+test('subagent prompts follow ignoreSubagents', async () => {
+  const ctx = createCtx({ rootId: 'root' })
+  const strict = mount({ cooldownMs: 0 }, { ctx })
+  await ctx.emitWaterfall('user-questions/request', { agent: { id: 'child' } })
+  await sleep(15)
+  assert.equal(strict.flashes.length, 0)
+  assert.ok(strict.logs.some((line) => line.includes('skip: subagent question request')))
+  strict.dispose()
+
+  const loose = mount({ cooldownMs: 0, ignoreSubagents: false }, { ctx })
+  await ctx.emitWaterfall('approval/request', { agent: { id: 'child' } })
+  await sleep(15)
+  assert.equal(loose.flashes.length, 1)
+})
+
+test('a prompt is observed even when the composed answerer throws', async () => {
+  const { ctx, flashes } = mount({ cooldownMs: 0 })
+  const off = ctx.on('user-questions/request', () => {
+    throw new Error('answerer exploded')
+  })
+  // listener order: ours first, then the throwing answerer
+  await assert.rejects(async () => {
+    await ctx.emitWaterfall('user-questions/request', { agent: { id: 'root' } })
+  }, /answerer exploded/)
+  off()
+  await sleep(15)
+  assert.equal(flashes.length, 1)
 })
