@@ -5,8 +5,24 @@
 # `disabled: true`.
 #
 # The palettes are presentation-only: every token layer, the injected
-# stylesheet and the stored selection live in the Client half (`client.js`),
-# so the Host side registers nothing configurable.
+# stylesheet and the stored selection live in the Client half (`client.js`).
+#
+# The Host half owns one thing — the Windows taskbar flash shown when a root
+# Session finishes a turn while the DSH window is not focused. Its options live
+# under `config.taskbarFlash` (config is replaced wholesale, so an override
+# restates the keys it needs):
+#
+#   - id: color-style
+#     config:
+#       taskbarFlash:
+#         enabled: true
+#         ignoreSubagents: true
+#         onlyWhenUnfocused: true
+#         flashCount: 0
+#         cooldownMs: 1500
+#         processName: DeepSeek Harness
+#         powerShellCommand: powershell.exe
+#         log: true
 - insert:
     - id: color-style
       name: 'dsh-color-style'

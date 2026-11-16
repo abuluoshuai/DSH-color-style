@@ -10,7 +10,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="license" />
-  <img src="https://img.shields.io/badge/version-0.5.0-informational.svg" alt="version" />
+  <img src="https://img.shields.io/badge/version-0.6.0-informational.svg" alt="version" />
   <img src="https://img.shields.io/badge/DSH-0.2.2--rc.1%2B-4d6bfe" alt="DSH" />
   <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/changelog-view-informational.svg" alt="changelog" /></a>
 </p>
@@ -35,6 +35,43 @@
   - 四种状态色、背景浓度与扫光速度可在设置页调整（`dsh.color-style.status.colors` / `.alpha` / `.speed` / `.unread`）。
 - **设置页独立的「配色方案」页** —— 以 `settings.section` 贡献注册，在设置导航里有自己的入口和图标；页内以卡片预览（背景 + 标题色 + 强调色点 + 代码底色）展示十种方案：双列排布，左列五个浅色、右列按色系对应的五个深色（纸卷↔余烬、樱雪↔德古拉、冰原↔午夜、草甸↔幽林、暮光↔深渊），点击即换；页面下方是两个作用域开关与「恢复默认外观」。
 
+## 完成时闪烁任务栏（Windows）
+
+除了配色，Host 半边还负责一件事：**根会话跑完一轮、而 DSH 桌面窗口不在前台时，闪烁 Windows
+任务栏上的 DSH 图标**，提醒你回来查看。你正看着窗口（在前台）时不闪，子代理的完成默认忽略，
+冷却窗口内的多次完成合并成一次。窗口一旦被激活，闪烁停止。
+
+实现上不碰 DSH 安装目录：Host 进程是桌面主进程的直接子进程，插件按 `process.ppid` 找到拥有
+任务栏按钮的那个窗口，用随包的 `scripts/flash-window.ps1` 调 Win32 `FlashWindowEx`
+（`FLASHW_ALL | FLASHW_TIMERNOFG`），窗口已经在前台时由脚本直接跳过。
+
+配置在 `cordis.patch.yml` 的行 `color-style` 的 `config.taskbarFlash` 下（`config` 整体替换，
+覆盖时只写需要的键，其余回落默认值）：
+
+```yaml
+- id: color-style
+  config:
+    taskbarFlash:
+      enabled: true            # 总开关
+      ignoreSubagents: true    # 忽略子代理会话的完成
+      onlyWhenUnfocused: true  # 窗口在前台时不闪（只写日志）
+      flashCount: 0            # 0 = 一直闪到窗口被激活；1..99 = 闪固定次数
+      cooldownMs: 1500         # 合并连续完成事件的窗口
+      processName: DeepSeek Harness
+      powerShellCommand: powershell.exe
+      log: true                # 写 $DSH_HOME/taskbar-flash/attention.log
+```
+
+排查：日志每次完成记一行 `completion detected`，下一行是 `flash …` 或 `skip …`
+（`reason: no-window` 表示 Host 不是由桌面应用启动的）。手动试闪（不经过会话事件）：
+
+```powershell
+$main = Get-Process -Name 'DeepSeek Harness' | Where-Object { $_.MainWindowHandle -ne [IntPtr]::Zero } | Select-Object -First 1
+powershell -NoProfile -ExecutionPolicy Bypass -File "<插件目录>\scripts\flash-window.ps1" -ParentPid $main.Id -Force
+```
+
+限制：仅 Windows（macOS 对应 Dock 弹跳，未实现）；依赖系统自带 PowerShell；窗口隐藏到托盘时
+没有任务栏按钮可闪；Windows 设置里关掉「任务栏闪烁」时系统会忽略请求。
 ## 作用域开关
 
 | 开关 | 默认 | 控制内容 | 实现 |
@@ -118,7 +155,7 @@ npm run check   # 语法检查（node --check）
 npm test        # 冒烟测试（stub 掉 window/document 与 theme/slots/locale 服务）
 ```
 
-测试覆盖（9 项，`node --test`）：启动即应用已选方案、令牌层与兜底样式表内容、旧 tinta 记录迁移、外观被外部翻转后的「粘性」拉回、重置后的完全退出、设置页十张卡片渲染与点击选方案、双列顺序、作用域开关、会话状态样式表与右键菜单注册。
+测试覆盖（19 项，`node --test`）：启动即应用已选方案、令牌层与兜底样式表内容、旧 tinta 记录迁移、外观被外部翻转后的「粘性」拉回、重置后的完全退出、设置页十张卡片渲染与点击选方案、双列顺序、作用域开关、会话状态样式表与右键菜单注册；以及任务栏闪烁的默认值/坏值回退、根会话完成触发、子代理过滤、合并、释放、平台与开关。
 另有一套 jsdom + 真实 React 的集成验证（会话行状态标记、右键菜单无参激活、点击已读、异常检测）。
 
 ## 更新记录

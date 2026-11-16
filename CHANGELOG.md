@@ -1,5 +1,17 @@
 # 更新记录
 
+## 0.6.0 — 完成时闪烁任务栏
+
+- Host 半边新增能力：根会话跑完一轮、而 DSH 桌面窗口不在前台时，闪烁 Windows 任务栏上的
+  DSH 图标提醒用户；窗口被激活即停，子代理完成默认忽略，冷却窗口内的多次完成合并为一次。
+  - 实现：监听 `agent/status` 的 `running → idle`，用随包 PowerShell 脚本按 `process.ppid`
+    找到 Electron 主进程的任务栏窗口，调用 Win32 `FlashWindowEx`；不修改 DSH 安装目录、
+    不依赖 Electron 内部 IPC。
+  - 配置在 `config.taskbarFlash`（`enabled` / `ignoreSubagents` / `onlyWhenUnfocused` /
+    `flashCount` / `cooldownMs` / `processName` / `powerShellCommand` / `log`）；
+    排查日志 `$DSH_HOME/taskbar-flash/attention.log`。
+  - 新增 10 项单元测试（事件、子代理过滤、合并、释放、平台与开关）。
+
 ## 0.5.0 — 文档版本
 
 - README 全面修订：作用域开关、会话状态背景、Tinta 渲染对齐、持久化键位、开发与测试说明。

@@ -1,7 +1,7 @@
 {
   "name": "dsh-color-style",
-  "version": "0.5.0",
-  "description": "Ten Markdown-reader colour schemes for DeepSeek Harness: full-window background, Markdown typography, and a dedicated Settings page.",
+  "version": "0.6.0",
+  "description": "Ten Markdown-reader colour schemes for DeepSeek Harness: full-window background, Markdown typography, a dedicated Settings page, and a taskbar flash when a Session turn finishes while the window is out of focus.",
   "type": "module",
   "license": "MIT",
   "author": "abuluoshuai",
@@ -37,7 +37,8 @@
   },
   "files": [
     "client.js",
-    "lib/index.js",
+    "lib",
+    "scripts",
     "icon.svg",
     "cordis.patch.yml",
     "locale/*.json",
@@ -65,7 +66,7 @@
     }
   },
   "scripts": {
-    "check": "node --check client.js && node --check lib/index.js",
+    "check": "node --check client.js && node --check lib/index.js && node --check lib/taskbar-flash.js && node --check lib/flash.js",
     "test": "node --test test/*.test.mjs"
   }
 }
