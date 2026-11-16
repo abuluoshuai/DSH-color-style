@@ -105,5 +105,6 @@ $info.dwFlags = [uint32]$flags
 $info.uCount = [uint32]([Math]::Max(0, $Count))
 $info.dwTimeout = 0
 
-$result = [DshTaskbarFlash]::FlashWindowEx([ref]$info)
-Write-Output ('{"ok":' + $result.ToString().ToLowerInvariant() + ',"action":"flash","hwnd":' + $window.ToInt64() + ',"count":' + $Count + '}')
+# FlashWindowEx reports the window's active state BEFORE the call, not success.
+$wasActive = [DshTaskbarFlash]::FlashWindowEx([ref]$info)
+Write-Output ('{"ok":true,"action":"flash","wasActive":' + $wasActive.ToString().ToLowerInvariant() + ',"hwnd":' + $window.ToInt64() + ',"count":' + $Count + '}')

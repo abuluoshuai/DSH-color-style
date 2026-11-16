@@ -11,6 +11,8 @@
     `flashCount` / `cooldownMs` / `processName` / `powerShellCommand` / `log`）；
     排查日志 `$DSH_HOME/taskbar-flash/attention.log`。
   - 新增 10 项单元测试（事件、子代理过滤、合并、释放、平台与开关）。
+  - 修正 `FlashWindowEx` 的返回值语义：它报告调用前窗口是否活动，不是调用成败；JSON 输出改为
+    `ok: true` + `wasActive`，不影响实际闪烁。
 
 ## 0.5.0 — 文档版本
 
