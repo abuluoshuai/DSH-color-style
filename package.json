@@ -1,7 +1,7 @@
 {
   "name": "dsh-color-style",
-  "version": "0.8.0",
-  "description": "Ten Markdown-reader colour schemes for DeepSeek Harness: full-window background, Markdown typography, a dedicated Settings page, custom colours for the historical user-message bubbles, and a Windows taskbar flash when a Session finishes a turn or needs the user (tool approval / structured question) while the window is out of focus.",
+  "version": "0.8.1",
+  "description": "Ten Markdown-reader colour schemes for DeepSeek Harness: full-window background, Markdown typography, a dedicated Settings page, custom colours for the historical user-message bubbles, session-status tints that clear once the session is opened, and a Windows taskbar flash when a Session finishes a turn or needs the user (tool approval / structured question) while the window is out of focus.",
   "type": "module",
   "license": "MIT",
   "author": "abuluoshuai",

@@ -1154,6 +1154,13 @@ window.__ModuleLoader__.load({
         const userMessageColors = readUserMessageColors();
         const manualUnread = readUnreadSet();
         const errorSessions = new Set();
+        // Turn-error nodes the user has already seen. A transcript keeps its
+        // historical error row when the tab is remounted, so without this the
+        // body observer would re-mark a session red immediately after the
+        // reader opened it. React may reuse the same DOM node for a later
+        // error, so the acknowledged signature (all current error rows' text,
+        // in order) is what distinguishes history from a new failure.
+        const acknowledgedErrorSignatures = new Map();
         let statusSnapshot = new Map();
         let statusFrame = 0;
 
@@ -1324,6 +1331,49 @@ window.__ModuleLoader__.load({
           return null;
         }
 
+        /** Remember the error rows currently visible for one session, so a
+         *  historical `_turnErrorRow` cannot re-raise the red state after the
+         *  reader has already viewed it. */
+        function acknowledgeErrorNodes(id) {
+          if (typeof id !== 'string' || id === '') return;
+          let rows;
+          try {
+            rows = document.querySelectorAll('[class*="_turnErrorRow"]');
+          } catch (error) {
+            return;
+          }
+          const signature = [];
+          for (const node of rows) {
+            const host = node.closest('[data-conversation-session]');
+            if (host !== null && host.getAttribute('data-conversation-session') === id) {
+              signature.push(node.textContent ?? '');
+            }
+          }
+          acknowledgedErrorSignatures.set(id, signature.join('\u0000'));
+        }
+
+        /** Text signature of the error rows currently mounted for one session. */
+        function errorSignatureFor(rows, id) {
+          const signature = [];
+          for (const node of rows) {
+            const host = node.closest('[data-conversation-session]');
+            if (host !== null && host.getAttribute('data-conversation-session') === id) {
+              signature.push(node.textContent ?? '');
+            }
+          }
+          return signature.join('\u0000');
+        }
+
+        /** Session id of the row the reader currently has selected ('' if none). */
+        function activeSessionId() {
+          try {
+            const active = document.querySelector('[data-row-key^="session:"][aria-selected="true"]');
+            return active === null ? '' : (active.getAttribute('data-row-key') ?? '').slice('session:'.length);
+          } catch (error) {
+            return '';
+          }
+        }
+
         /** Paint every rendered session row with its state attribute. */
         function applyStatuses() {
           let rows;
@@ -1331,6 +1381,15 @@ window.__ModuleLoader__.load({
             rows = document.querySelectorAll('[data-row-key^="session:"]');
           } catch (error) {
             return;
+          }
+          // Selecting a row is "the reader has seen it": clear a red error
+          // state even when the row was opened by a keyboard/session switch
+          // rather than a click on its title. Only the error layer is cleared;
+          // an explicit "mark unread" stays green until its own click.
+          const activeSession = activeSessionId();
+          if (activeSession !== '' && errorSessions.has(activeSession)) {
+            acknowledgeErrorNodes(activeSession);
+            errorSessions.delete(activeSession);
           }
           for (const row of rows) {
             const key = row.getAttribute('data-row-key') ?? '';
@@ -1365,6 +1424,7 @@ window.__ModuleLoader__.load({
 
         function markRead(id) {
           const had = manualUnread.delete(id);
+          if (errorSessions.has(id)) acknowledgeErrorNodes(id);
           const hadError = errorSessions.delete(id);
           if (had) writeUnreadSet();
           if (had || hadError) {
@@ -1438,10 +1498,29 @@ window.__ModuleLoader__.load({
               return;
             }
             if (errorRows.length === 0) return;
+            const bySession = new Map();
             for (const node of errorRows) {
               const host = node.closest('[data-conversation-session]');
               const id = host?.getAttribute('data-conversation-session') ?? '';
-              if (id !== '' && !errorSessions.has(id)) {
+              if (id === '') continue;
+              const list = bySession.get(id);
+              if (list === undefined) bySession.set(id, [node]);
+              else list.push(node);
+            }
+            const activeSession = activeSessionId();
+            for (const [id] of bySession) {
+              // The reader is looking at this transcript now; a historical
+              // error (or one that just appeared) must not stay red.
+              if (id === activeSession) {
+                acknowledgeErrorNodes(id);
+                errorSessions.delete(id);
+                continue;
+              }
+              // The same transcript error that was on screen when the reader
+              // opened the session must not re-raise the red state; a changed
+              // signature (a new error row/content) may.
+              if (acknowledgedErrorSignatures.get(id) === errorSignatureFor(errorRows, id)) continue;
+              if (!errorSessions.has(id)) {
                 errorSessions.add(id);
                 scheduleStatuses();
               }
